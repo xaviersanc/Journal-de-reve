@@ -4,6 +4,7 @@ import { AsyncStorageConfig } from '@/constants/AsyncStorageConfig';
 import { DreamData } from '@/interfaces/DreamData';
 import { AsyncStorageService } from '@/services/AsyncStorageService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Slider from '@react-native-community/slider';
 import React, { useState } from 'react';
 import {
@@ -19,10 +20,13 @@ import { Button, Checkbox, SegmentedButtons, TextInput } from 'react-native-pape
 
 const { width } = Dimensions.get('window');
 
+const formatDate = (d: Date) =>
+  new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+const formatTime = (d: Date) =>
+  new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+
 export default function DreamForm() {
   const [dreamText, setDreamText] = useState<string>('');
-  const [date, setDate] = useState<string>('');
-  const [hour, setHour] = useState<string>('');
   const [location, setLocation] = useState<string>('');
   const [character, setCharacter] = useState<string>('');
   const [signification, setSignification] = useState<string>('');
@@ -32,6 +36,29 @@ export default function DreamForm() {
   const [dreamType, setDreamType] =
     useState<'lucid' | 'nightmare' | 'pleasant'>('pleasant');
 
+  // Date/Heure via pickers natifs
+  const [dateObj, setDateObj] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const dateDisplay = formatDate(dateObj);
+  const timeDisplay = formatTime(dateObj);
+
+  const onChangeDate = (_: DateTimePickerEvent, selected?: Date) => {
+    setShowDatePicker(false);
+    if (!selected) return;
+    const merged = new Date(dateObj);
+    merged.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+    setDateObj(merged);
+  };
+
+  const onChangeTime = (_: DateTimePickerEvent, selected?: Date) => {
+    setShowTimePicker(false);
+    if (!selected) return;
+    const merged = new Date(dateObj);
+    merged.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+    setDateObj(merged);
+  };
+
   const handleDreamSubmission = async (): Promise<void> => {
     try {
       const formDataArray: DreamData[] =
@@ -39,8 +66,6 @@ export default function DreamForm() {
 
       formDataArray.push({
         dreamText,
-        date,
-        hour,
         location,
         character,
         intensity,
@@ -49,6 +74,10 @@ export default function DreamForm() {
         favorite,
         dreamType,
         isLucidDream: dreamType === 'lucid',
+        // formats persistés
+        dateISO: dateObj.toISOString(),
+        dateDisplay,
+        timeDisplay,
       } as unknown as DreamData);
 
       await AsyncStorageService.setData(AsyncStorageConfig.keys.dreamsArrayKey, formDataArray);
@@ -58,8 +87,6 @@ export default function DreamForm() {
     }
 
     setDreamText('');
-    setDate('');
-    setHour('');
     setLocation('');
     setCharacter('');
     setIntensity(5);
@@ -67,12 +94,14 @@ export default function DreamForm() {
     setSignification('');
     setFavorite(false);
     setDreamType('pleasant');
+    const now = new Date();
+    setDateObj(now);
   };
 
   return (
     <KeyboardAwareScrollView
       enableOnAndroid
-      extraScrollHeight={24}                // pousse légèrement le champ focalisé
+      extraScrollHeight={24}
       extraHeight={Platform.OS === 'android' ? 80 : 0}
       keyboardOpeningTime={0}
       contentContainerStyle={{ paddingBottom: 32 }}
@@ -81,24 +110,49 @@ export default function DreamForm() {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.container}>
-          {/* Date / Heure */}
+          {/* Date / Heure (non éditables, ouvrent des pickers) */}
           <View style={[styles.row, { width: width * 0.8, alignSelf: 'center' }]}>
             <TextInput
               label="Date"
-              value={date}
-              onChangeText={setDate}
+              value={dateDisplay}
               mode="flat"
+              editable={false}
+              onPressIn={() => setShowDatePicker(true)}
+              right={<TextInput.Icon icon="calendar" onPress={() => setShowDatePicker(true)} />}
               style={[styles.half, { marginRight: 8 }]}
             />
             <TextInput
               label="Heure"
-              value={hour}
-              onChangeText={setHour}
+              value={timeDisplay}
               mode="flat"
+              editable={false}
+              onPressIn={() => setShowTimePicker(true)}
+              right={<TextInput.Icon icon="clock-outline" onPress={() => setShowTimePicker(true)} />}
               style={styles.half}
             />
           </View>
 
+          {showDatePicker && (
+            <DateTimePicker
+              value={dateObj}
+              mode="date"
+              display={Platform.OS === 'ios' ? 'inline' : 'default'}
+              onChange={onChangeDate}
+              locale="fr-FR"
+            />
+          )}
+          {showTimePicker && (
+            <DateTimePicker
+              value={dateObj}
+              mode="time"
+              display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+              onChange={onChangeTime}
+              locale="fr-FR"
+              is24Hour
+            />
+          )}
+
+          {/* Lieu */}
           <TextInput
             label="Lieu"
             value={location}
@@ -107,6 +161,7 @@ export default function DreamForm() {
             style={[styles.input, { width: width * 0.8, alignSelf: 'center' }]}
           />
 
+          {/* Personne */}
           <TextInput
             label="Personne"
             value={character}
