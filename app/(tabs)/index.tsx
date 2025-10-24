@@ -7,6 +7,7 @@ export default function TabOneScreen() {
     <View style={styles.container}>
       <View style={styles.separator} />
       <Text style={styles.title}>Enregistrer un rêve</Text>
+      <View style={styles.separator} />
       <DreamForm />
     </View>
   );

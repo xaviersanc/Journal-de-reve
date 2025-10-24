@@ -16,7 +16,7 @@ import {
   View,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
-import { Button, Checkbox, SegmentedButtons, TextInput } from 'react-native-paper';
+import { Button, Checkbox, Chip, SegmentedButtons, TextInput } from 'react-native-paper';
 
 const { width } = Dimensions.get('window');
 
@@ -27,6 +27,7 @@ const formatTime = (d: Date) =>
 
 export default function DreamForm() {
   const [dreamText, setDreamText] = useState<string>('');
+  const [dreamDescription, setDreamDescription] = useState<string>('');
   const [location, setLocation] = useState<string>('');
   const [character, setCharacter] = useState<string>('');
   const [signification, setSignification] = useState<string>('');
@@ -36,12 +37,34 @@ export default function DreamForm() {
   const [dreamType, setDreamType] =
     useState<'lucid' | 'nightmare' | 'pleasant'>('pleasant');
 
-  // Date/Heure via pickers natifs
+  // Date/Heure (pickers)
   const [dateObj, setDateObj] = useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const dateDisplay = formatDate(dateObj);
   const timeDisplay = formatTime(dateObj);
+
+  // Tags (3 maximum)
+  const [tags, setTags] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState<string>('');
+
+  const sanitizeTag = (raw: string) =>
+    raw
+      .trim()
+      .replace(/^#+/, '')           // retire les # initiaux
+      .replace(/\s+/g, '-')         // espaces -> tirets
+      .toLowerCase();
+
+  const addTag = () => {
+    if (tags.length >= 3) return;
+    const t = sanitizeTag(tagInput);
+    if (!t) return;
+    if (tags.includes(t)) return;
+    setTags((prev) => [...prev, t]);
+    setTagInput('');
+  };
+
+  const removeTag = (t: string) => setTags((prev) => prev.filter((x) => x !== t));
 
   const onChangeDate = (_: DateTimePickerEvent, selected?: Date) => {
     setShowDatePicker(false);
@@ -66,6 +89,7 @@ export default function DreamForm() {
 
       formDataArray.push({
         dreamText,
+        dreamDescription,
         location,
         character,
         intensity,
@@ -74,10 +98,10 @@ export default function DreamForm() {
         favorite,
         dreamType,
         isLucidDream: dreamType === 'lucid',
-        // formats persistés
         dateISO: dateObj.toISOString(),
         dateDisplay,
         timeDisplay,
+        tags, // <-- persiste les 3 hashtags
       } as unknown as DreamData);
 
       await AsyncStorageService.setData(AsyncStorageConfig.keys.dreamsArrayKey, formDataArray);
@@ -87,6 +111,7 @@ export default function DreamForm() {
     }
 
     setDreamText('');
+    setDreamDescription('');
     setLocation('');
     setCharacter('');
     setIntensity(5);
@@ -94,8 +119,9 @@ export default function DreamForm() {
     setSignification('');
     setFavorite(false);
     setDreamType('pleasant');
-    const now = new Date();
-    setDateObj(now);
+    setTags([]);
+    setTagInput('');
+    setDateObj(new Date());
   };
 
   return (
@@ -110,7 +136,7 @@ export default function DreamForm() {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.container}>
-          {/* Date / Heure (non éditables, ouvrent des pickers) */}
+          {/* Date / Heure */}
           <View style={[styles.row, { width: width * 0.8, alignSelf: 'center' }]}>
             <TextInput
               label="Date"
@@ -151,6 +177,17 @@ export default function DreamForm() {
               is24Hour
             />
           )}
+
+          {/* Rêve */}
+          <TextInput
+            label="Titre du rêve"
+            value={dreamText}
+            onChangeText={setDreamText}
+            mode="flat"
+            multiline
+            numberOfLines={6}
+            style={[styles.input, { width: width * 0.8, alignSelf: 'center' }]}
+          />
 
           {/* Lieu */}
           <TextInput
@@ -222,16 +259,52 @@ export default function DreamForm() {
             style={[styles.input, { width: width * 0.8, alignSelf: 'center' }]}
           />
 
-          {/* Rêve */}
+
+          {/* Description */}
           <TextInput
-            label="Rêve"
-            value={dreamText}
-            onChangeText={setDreamText}
+            label="Description du rêve"
+            value={dreamDescription}
+            onChangeText={setDreamDescription}
             mode="flat"
             multiline
-            numberOfLines={6}
+            numberOfLines={4}
             style={[styles.input, { width: width * 0.8, alignSelf: 'center' }]}
           />
+
+
+
+          {/* Hashtags (3 max) */}
+          <View style={{ width: width * 0.8, alignSelf: 'center', marginBottom: 8 }}>
+            <ThemedText style={styles.fieldLabel}>Hashtags (3 max)</ThemedText>
+            <View style={styles.tagsRow}>
+              {tags.map((t) => (
+                <Chip
+                  key={t}
+                  style={styles.tagChip}
+                  onClose={() => removeTag(t)}
+                >
+                  #{t}
+                </Chip>
+              ))}
+            </View>
+            <TextInput
+              label="Ajouter un hashtag"
+              value={tagInput}
+              onChangeText={setTagInput}
+              mode="flat"
+              placeholder="#exemple"
+              right={
+                <TextInput.Icon
+                  icon="plus"
+                  onPress={addTag}
+                  disabled={tags.length >= 3 || !sanitizeTag(tagInput)}
+                />
+              }
+              onSubmitEditing={addTag}
+              disabled={tags.length >= 3}
+              style={{ marginTop: 8 }}
+            />
+          </View>
 
           {/* Favori */}
           <View style={{ width: width * 0.8, alignSelf: 'center' }}>
@@ -243,7 +316,7 @@ export default function DreamForm() {
           </View>
 
           <Button mode="contained" onPress={handleDreamSubmission} style={styles.button}>
-            Soumettre
+            Enregistrer
           </Button>
 
           <View style={{ height: 16 }} />
@@ -271,4 +344,14 @@ const styles = StyleSheet.create({
   sliderLabel: { marginBottom: 4, fontSize: 12 },
   sliderHalf: { flex: 1 },
   fieldLabel: { fontSize: 12, marginBottom: 4 },
+  tagsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 4,
+  },
+  tagChip: {
+    marginRight: 8,
+    marginBottom: 8,
+  },
 });
