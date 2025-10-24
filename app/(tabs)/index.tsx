@@ -2,12 +2,12 @@ import DreamForm from '@/components/DreamForm';
 import { Text, View } from '@/components/Themed';
 import { StyleSheet } from 'react-native';
 
-
 export default function TabOneScreen() {
   return (
     <View style={styles.container}>
+      <View style={styles.separator} />
       <Text style={styles.title}>Enregistrer un rêve</Text>
-      <DreamForm/>
+      <DreamForm />
     </View>
   );
 }
@@ -23,8 +23,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
+  marginVertical: 10,
+  height: 0,
+  width: '80%',
+},
 });
