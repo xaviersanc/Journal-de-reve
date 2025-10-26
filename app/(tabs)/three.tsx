@@ -1,10 +1,8 @@
-
-
 import DreamList from '@/components/DreamList';
 import { useSearch } from '@/components/SearchContext';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Keyboard, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Button, Card, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 
 /**
@@ -22,6 +20,7 @@ export default function TabThreeScreen() {
   const [showStartPicker, setShowStartPicker] = useState(false);
   const [showEndPicker, setShowEndPicker] = useState(false);
   const [tag, setTag] = useState('');
+  const [searchLaunched, setSearchLaunched] = useState(false);
   const { setCriteria } = useSearch();
   const { width } = useWindowDimensions();
 
@@ -42,11 +41,14 @@ export default function TabThreeScreen() {
 
   // Soumission de la recherche : met à jour le contexte (affiche résultats dessous)
   const handleSearch = () => {
+    Keyboard.dismiss();
     setCriteria({ search, type, character, periodStart, periodEnd, tag });
+    setSearchLaunched(true);
   };
 
-  return (
-    <View style={styles.container}>
+  // Header de recherche à injecter dans la FlatList
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
       <Text style={styles.title}>Journal de rêve</Text>
       <Text style={styles.subtitle}>Retrouve, explore et analyse tes rêves facilement.</Text>
 
@@ -154,11 +156,14 @@ export default function TabThreeScreen() {
           </Card.Content>
         </Card>
       )}
-      {/* Résultats de la recherche (affichés sous la recherche rapide ou avancée) */}
-      <View style={{ width: '100%', maxWidth: 600, alignSelf: 'center', marginTop: 8, flex: 1 }}>
-        <DreamList />
-      </View>
     </View>
+  );
+
+  return (
+    <>
+      {searchLaunched && <DreamList ListHeaderComponent={renderHeader} />}
+      {!searchLaunched && renderHeader()}
+    </>
   );
 }
 
@@ -192,5 +197,12 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderRadius: 16,
     elevation: 2,
+  },
+  headerContainer: {
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    padding: 24,
+    backgroundColor: '#f5f5f5',
+    width: '100%',
   },
 });

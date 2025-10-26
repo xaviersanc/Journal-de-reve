@@ -1,15 +1,13 @@
-
 import DreamList from '@/components/DreamList';
-import { useEffect, useCallback } from 'react';
-import { AsyncStorageService } from '@/services/AsyncStorageService';
 import { AsyncStorageConfig } from '@/constants/AsyncStorageConfig';
 import { DreamData } from '@/interfaces/DreamData';
+import { AsyncStorageService } from '@/services/AsyncStorageService';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
-import { Button, Text, TextInput, SegmentedButtons } from 'react-native-paper';
+import { Button, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 export default function TabTwoScreen() {
-  const [tab, setTab] = useState<'periode' | 'tous'>('periode');
+  const [tab, setTab] = useState<'periode' | 'tous'>('tous');
   // Période sélectionnée
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
@@ -18,6 +16,7 @@ export default function TabTwoScreen() {
   const [filter, setFilter] = useState<{start?: string, end?: string}>({});
   const [dreams, setDreams] = useState<DreamData[]>([]);
   const [filteredDreams, setFilteredDreams] = useState<DreamData[]>([]);
+  const [filterLaunched, setFilterLaunched] = useState(false);
 
   // Charger tous les rêves au montage
   const loadDreams = useCallback(async () => {
@@ -61,13 +60,17 @@ export default function TabTwoScreen() {
   // Appliquer le filtre
   const handleFilter = () => {
     setFilter({ start, end });
+    setFilterLaunched(true);
   };
 
   return (
     <View style={{ flex: 1 }}>
       <SegmentedButtons
         value={tab}
-        onValueChange={setTab}
+        onValueChange={value => {
+          setTab(value);
+          if (value === 'periode') setFilterLaunched(false);
+        }}
         buttons={[
           { value: 'periode', label: 'Par jour/période' },
           { value: 'tous', label: 'Tous les rêves' },
@@ -117,7 +120,7 @@ export default function TabTwoScreen() {
           )}
           <Button mode="contained" style={{ marginTop: 12, marginBottom: 12 }} onPress={handleFilter}>Voir les rêves</Button>
           {/* DreamList filtrée par période */}
-          <DreamList data={filteredDreams} />
+          {filterLaunched && <DreamList data={filteredDreams} />}
         </View>
       )}
       {tab === 'tous' && (

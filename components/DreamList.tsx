@@ -83,11 +83,13 @@ const sanitizeTag = (raw: string) => raw.trim().replace(/^#+/, '').replace(/\s+/
  */
 import { useSearch } from './SearchContext';
 
+import React from 'react';
 type DreamListProps = {
   data?: DreamData[];
+  ListHeaderComponent?: React.ComponentType | React.ReactElement | null;
 };
 
-export default function DreamList({ data: dataProp }: DreamListProps) {
+export default function DreamList({ data: dataProp, ListHeaderComponent }: DreamListProps) {
   const { width } = useWindowDimensions();
   const columns = width >= 1200 ? 3 : width >= 768 ? 2 : 1;
   const { criteria } = useSearch();
@@ -390,6 +392,7 @@ export default function DreamList({ data: dataProp }: DreamListProps) {
         showsVerticalScrollIndicator={false}
         refreshControl={refresher}
         ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve trouvé</ThemedText></View>}
+        ListHeaderComponent={ListHeaderComponent}
       />
 
       {/* Modale éditeur */}
