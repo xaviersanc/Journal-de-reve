@@ -7,6 +7,7 @@ import { DreamData } from '@/interfaces/DreamData';
 import { AsyncStorageService } from '@/services/AsyncStorageService';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Slider from '@react-native-community/slider';
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Platform, RefreshControl, StyleSheet, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -59,6 +60,12 @@ export default function DreamList() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  // Recharge les données à chaque fois que l’onglet écran reprend le focus
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
 
   /* ── État éditeur (groupé pour compacité) ── */
   type DreamType = 'lucid' | 'nightmare' | 'pleasant' | undefined;
