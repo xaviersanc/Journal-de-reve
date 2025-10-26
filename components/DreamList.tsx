@@ -83,7 +83,13 @@ const sanitizeTag = (raw: string) => raw.trim().replace(/^#+/, '').replace(/\s+/
  */
 import { useSearch } from './SearchContext';
 
-export default function DreamList() {
+import React from 'react';
+type DreamListProps = {
+  data?: DreamData[];
+  ListHeaderComponent?: React.ComponentType | React.ReactElement | null;
+};
+
+export default function DreamList({ data: dataProp, ListHeaderComponent }: DreamListProps) {
   const { width } = useWindowDimensions();
   const columns = width >= 1200 ? 3 : width >= 768 ? 2 : 1;
   const { criteria } = useSearch();
@@ -115,6 +121,7 @@ export default function DreamList() {
 
   // Filtrage selon les critères de recherche
   const filteredData = useMemo(() => {
+    if (dataProp) return dataProp;
     if (!criteria) return data;
     return data.filter((dream) => {
       // Recherche simple : mot-clé dans la description
@@ -147,7 +154,7 @@ export default function DreamList() {
       }
       return true;
     });
-  }, [data, criteria]);
+  }, [data, criteria, dataProp]);
 
   /* ── État éditeur (groupé pour compacité) ── */
   type DreamType = 'lucid' | 'nightmare' | 'pleasant' | undefined;
@@ -384,7 +391,8 @@ export default function DreamList() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={refresher}
-        ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve trouvé</ThemedText></View>}
+  ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve</ThemedText></View>}
+        ListHeaderComponent={ListHeaderComponent}
       />
 
       {/* Modale éditeur */}
