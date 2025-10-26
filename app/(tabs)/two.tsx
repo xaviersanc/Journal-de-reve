@@ -91,7 +91,7 @@ export default function TabTwoScreen() {
         style={{ margin: 12 }}
       />
 
-      {tab === 'periode' && (
+      {tab === 'periode' && !filterLaunched && (
         <ScrollView
           contentContainerStyle={[styles.container, { backgroundColor: bgColor }]}
           keyboardShouldPersistTaps="handled"
@@ -155,25 +155,33 @@ export default function TabTwoScreen() {
             </Card.Content>
           </Card>
 
-          {/* Liste filtrée */}
-          {filterLaunched && <DreamList data={filteredDreams} />}
+          {/* Liste filtrée - PLUS DANS LE SCROLLVIEW */}
         </ScrollView>
       )}
 
-      {tab === 'tous' && (
-        <ScrollView
-          contentContainerStyle={[styles.container, { backgroundColor: bgColor }]}
-          showsVerticalScrollIndicator={false}
-        >
-          <Text style={[styles.title, { color: textColor }]}>Tous les rêves</Text>
+      {tab === 'periode' && filterLaunched && (
+        <DreamList 
+          data={filteredDreams}
+          ListHeaderComponent={
+            <View style={[styles.container, { backgroundColor: bgColor }]}>
+              <Text style={[styles.title, { color: textColor }]}>Rêves par période</Text>
+              <Card style={[styles.card, { backgroundColor: cardColor }]}>
+                <Card.Content>
+                  <Text style={{ color: subText, textAlign: 'center', marginBottom: 8 }}>
+                    Période : {startDisplay || '...'} - {endDisplay || '...'}
+                  </Text>
+                  <Button mode="outlined" onPress={() => setFilterLaunched(false)}>
+                    Modifier la période
+                  </Button>
+                </Card.Content>
+              </Card>
+            </View>
+          }
+        />
+      )}
 
-          {/* Bloc contenant la liste pour garder le fond de lecture en dark */}
-          <Card style={[styles.card, { backgroundColor: cardColor, paddingVertical: 8 }]}>
-            <Card.Content>
-              <DreamList />
-            </Card.Content>
-          </Card>
-        </ScrollView>
+      {tab === 'tous' && (
+        <DreamList />
       )}
     </View>
   );

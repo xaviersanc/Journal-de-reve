@@ -1,9 +1,9 @@
 import DreamList from '@/components/DreamList';
 import { useSearch } from '@/components/SearchContext';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Keyboard, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Button, Card, SegmentedButtons, Text, TextInput } from 'react-native-paper';
+import { Button, Card, SegmentedButtons, Text, TextInput, useTheme } from 'react-native-paper';
 
 /**
  * Accueil / Recherche (Light + Dark)
@@ -51,7 +51,7 @@ export default function TabThreeScreen() {
     setSearchLaunched(true);
   };
 
-  const renderHeader = () => (
+  const headerComponent = useMemo(() => (
     <View style={[styles.headerContainer, { backgroundColor: bgColor }]}>
       <Text style={[styles.title, { color: textColor }]}>Journal de rêve</Text>
       <Text style={[styles.subtitle, { color: subText }]}>Retrouve, explore et analyse tes rêves facilement.</Text>
@@ -161,16 +161,12 @@ export default function TabThreeScreen() {
         </Card>
       )}
     </View>
-  );
+  ), [bgColor, textColor, subText, advanced, cardColor, search, type, character, periodStartDisplay, periodEndDisplay, showStartPicker, showEndPicker, tag, DARK]);
 
   return (
-    <>
-      {searchLaunched ? (
-        <DreamList ListHeaderComponent={renderHeader} />
-      ) : (
-        renderHeader()
-      )}
-    </>
+    <View style={{ flex: 1, backgroundColor: bgColor }}>
+      <DreamList ListHeaderComponent={headerComponent} />
+    </View>
   );
 }
 
