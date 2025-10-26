@@ -10,12 +10,18 @@
       "android": {
         "buildType": "apk"
       },
+      "node": "22.12.0"
     },
     "preview": {
-      "distribution": "internal"
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "node": "22.12.0"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "node": "22.12.0"
     }
   },
   "submit": {
