@@ -3,14 +3,22 @@ import { useSearch } from '@/components/SearchContext';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useState } from 'react';
 import { Keyboard, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Button, Card, SegmentedButtons, Text, TextInput } from 'react-native-paper';
+import { Button, Card, SegmentedButtons, Text, TextInput, useTheme } from 'react-native-paper';
 
 /**
- * Page d'accueil de l'application Journal de rêve (onglet Accueil)
- * - Recherche simple (mot-clé dans la description)
- * - Recherche avancée (type, personnage, période, mot-clé/tag)
+ * Accueil / Recherche (Light + Dark)
+ * - Dark: fond #1A1A1E, blocs (Card) #303030, texte blanc
+ * - Light: styles existants conservés
  */
 export default function TabThreeScreen() {
+  const theme = useTheme();
+  const DARK = theme.dark;
+
+  const bgColor    = DARK ? '#1A1A1E' : '#f5f5f5';
+  const cardColor  = DARK ? '#303030' : '#FFFFFF';
+  const textColor  = DARK ? '#FFFFFF' : '#000000';
+  const subText    = DARK ? 'rgba(255,255,255,0.7)' : '#666';
+
   const [search, setSearch] = useState('');
   const [advanced, setAdvanced] = useState(false);
   const [type, setType] = useState<'lucid' | 'nightmare' | 'pleasant' | ''>('');
@@ -24,12 +32,10 @@ export default function TabThreeScreen() {
   const { setCriteria } = useSearch();
   const { width } = useWindowDimensions();
 
-  // Helpers pour affichage date
   const formatDate = (d: Date) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
   const periodStartDisplay = periodStart ? formatDate(new Date(periodStart)) : '';
   const periodEndDisplay = periodEnd ? formatDate(new Date(periodEnd)) : '';
 
-  // Gestion sélection date
   const onChangeStart = (_: DateTimePickerEvent, selected?: Date) => {
     setShowStartPicker(false);
     if (selected) setPeriodStart(selected.toISOString().slice(0, 10));
@@ -39,23 +45,20 @@ export default function TabThreeScreen() {
     if (selected) setPeriodEnd(selected.toISOString().slice(0, 10));
   };
 
-  // Soumission de la recherche : met à jour le contexte (affiche résultats dessous)
   const handleSearch = () => {
     Keyboard.dismiss();
     setCriteria({ search, type, character, periodStart, periodEnd, tag });
     setSearchLaunched(true);
   };
 
-  // Header de recherche à injecter dans la FlatList
   const renderHeader = () => (
-    <View style={styles.headerContainer}>
-      <Text style={styles.title}>Journal de rêve</Text>
-      <Text style={styles.subtitle}>Retrouve, explore et analyse tes rêves facilement.</Text>
+    <View style={[styles.headerContainer, { backgroundColor: bgColor }]}>
+      <Text style={[styles.title, { color: textColor }]}>Journal de rêve</Text>
+      <Text style={[styles.subtitle, { color: subText }]}>Retrouve, explore et analyse tes rêves facilement.</Text>
 
-      {/* Recherche simple */}
       {!advanced && (
-        <Card style={styles.card}>
-          <Card.Title title="Recherche rapide" />
+        <Card style={[styles.card, { backgroundColor: cardColor }]}>
+          <Card.Title title="Recherche rapide" titleStyle={{ color: textColor }} />
           <Card.Content>
             <TextInput
               label="Mot-clé dans la description"
@@ -72,10 +75,9 @@ export default function TabThreeScreen() {
         </Card>
       )}
 
-      {/* Recherche avancée */}
       {advanced && (
-        <Card style={styles.card}>
-          <Card.Title title="Recherche avancée" />
+        <Card style={[styles.card, { backgroundColor: cardColor }]}>
+          <Card.Title title="Recherche avancée" titleStyle={{ color: textColor }} />
           <Card.Content>
             <TextInput
               label="Mot-clé dans la description"
@@ -131,6 +133,7 @@ export default function TabThreeScreen() {
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 onChange={onChangeStart}
                 locale="fr-FR"
+                {...(DARK && Platform.OS === 'ios' ? { themeVariant: 'dark' as const } : {})}
               />
             )}
             {showEndPicker && (
@@ -140,6 +143,7 @@ export default function TabThreeScreen() {
                 display={Platform.OS === 'ios' ? 'inline' : 'default'}
                 onChange={onChangeEnd}
                 locale="fr-FR"
+                {...(DARK && Platform.OS === 'ios' ? { themeVariant: 'dark' as const } : {})}
               />
             )}
             <TextInput
@@ -159,22 +163,26 @@ export default function TabThreeScreen() {
     </View>
   );
 
-  return (
-    <>
-      {searchLaunched ? (
-        <ScrollView contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
-          {renderHeader()}
-          <DreamList />
-        </ScrollView>
-      ) : (
-        renderHeader()
-      )}
-    </>
+  return searchLaunched ? (
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: 32, backgroundColor: bgColor }}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      {renderHeader()}
+      <DreamList />
+    </ScrollView>
+  ) : (
+    <ScrollView
+      contentContainerStyle={{ paddingBottom: 32, backgroundColor: bgColor }}
+      showsVerticalScrollIndicator={false}
+    >
+      {renderHeader()}
+    </ScrollView>
   );
 }
 
-
-// Styles à placer après le composant pour éviter l'erreur d'utilisation avant déclaration
+// Styles de base (couleurs surchargées par variables selon le thème)
 const styles = StyleSheet.create({
   container: {
     flex: 1,
