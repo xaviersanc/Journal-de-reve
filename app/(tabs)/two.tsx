@@ -1,14 +1,15 @@
 import { StyleSheet } from 'react-native';
 
-import { Text, View } from '@/components/Themed';
 import DreamList from '@/components/DreamList';
+import { Text, View } from '@/components/Themed';
 
 export default function TabTwoScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab Two</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <DreamList/>
+          <View style={styles.separator} />
+          <Text style={styles.title}>Liste de rêves</Text>
+          <View style={styles.separator} />
+          <DreamList/>
     </View>
   );
 }
@@ -24,8 +25,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
+  marginVertical: 10,
+  height: 0,
+  width: '80%',
+},
 });
