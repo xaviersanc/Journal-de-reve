@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard';
 // components/DreamList.tsx
 // Liste + éditeur de rêves (version compacte, commentée par blocs)
 
@@ -363,10 +364,57 @@ export default function DreamList({ data: dataProp, ListHeaderComponent }: Dream
                 : <ThemedText style={styles.placeholder}>Aucun</ThemedText>}
             </View>
           </View>
+          {/* Bouton d'exportation */}
+          <View style={{ alignItems: 'flex-end', marginTop: 8 }}>
+            <Button mode="outlined" icon="share-variant" onPress={() => handleExportDream(item)}>
+              Exporter / Partager
+            </Button>
+          </View>
         </Card.Content>
       </Card>
     );
   };
+// Fonction d'exportation/partage d'un rêve
+import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import { Alert } from 'react-native';
+
+async function handleExportDream(dream: DreamData) {
+  try {
+    // Format du texte à exporter
+    // Format détaillé et agréable
+    const content =
+      '━━━━━━━━━━━━━━━━━━━━━━\n' +
+      '🌙 𝗥𝗘̂𝗩𝗘 𝗘𝗫𝗣𝗢𝗥𝗧𝗘́\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━\n' +
+      `\n` +
+      `🌙 𝗧𝗶𝘁𝗿�         : ${dream.title?.trim() || 'Sans titre'}\n` +
+      `📝 𝗧𝗲𝘅𝗲         : ${(dream.dreamText?.trim() || '—')}\n` +
+      `📖 𝗗𝗲𝘀𝗰𝗿𝗶𝗽𝘁𝗶𝗼𝗻   : ${(dream as any).dreamDescription?.trim() || '—'}\n` +
+      `📍 𝗟𝗶𝗲𝘂          : ${(dream as any).location?.trim() || '—'}\n` +
+      `👤 𝗣𝗲𝗿𝘀𝗼𝗻𝗻𝗮𝗴𝗲    : ${(dream as any).character?.trim() || '—'}\n` +
+      `🔮 𝗦𝗶𝗴𝗻𝗶𝗳𝗶𝗰𝗮𝘁𝗶𝗼𝗻 : ${(dream as any).signification?.trim() || '—'}\n` +
+      `⭐ 𝗙𝗮𝘃𝗼𝗶        : ${((dream as any).favorite ? 'Oui' : 'Non')}\n` +
+      `💥 𝗜𝗻𝘁𝗲𝗻𝘀𝗶𝘁𝗲́     : ${(dream as any).intensity ?? '—'}\n` +
+      `🎚️ 𝗤𝘂𝗮𝗹𝗶𝘁𝗲́      : ${(dream as any).qualityDream ?? '—'}\n` +
+      `📝 𝗧𝘆𝗽𝗲          : ${dream.dreamType ? typeLabel(dream.dreamType, dream.isLucidDream) : '—'}${dream.isLucidDream ? ' (lucide)' : ''}\n` +
+      `🎭 𝗧𝗼𝗻𝗮𝗹𝗶𝘁𝗲́      : ${(dream as any).dreamQuality || '—'}\n` +
+      `📅 𝗗𝗮𝘁𝗲          : ${dream.dateDisplay || dream.dateISO || '—'}\n` +
+      `🕒 𝗛𝗲𝘂𝗿𝗲         : ${dream.timeDisplay || '—'}\n` +
+      `🏷️ 𝗧𝗮𝗴𝘀         : ${(dream.tags && dream.tags.length) ? dream.tags.map(t => '#' + t).join(' ') : '—'}\n` +
+      '\n━━━━━━━━━━━━━━━━━━━━━━\n';
+    // Copier dans le presse-papiers
+    await Clipboard.setStringAsync(content);
+    // Création d'un fichier temporaire
+    const fileUri = FileSystem.cacheDirectory + `reve-export-${Date.now()}.txt`;
+  await FileSystem.writeAsStringAsync(fileUri, content, { encoding: 'utf8' });
+    // Partage natif
+    await Sharing.shareAsync(fileUri, { mimeType: 'text/plain' });
+    Alert.alert('Exporté', 'Le rêve a été copié dans le presse-papiers.');
+  } catch (e) {
+    Alert.alert('Erreur', "Impossible d'exporter le rêve : " + (e as Error).message);
+  }
+}
 
   /* ── Mémo du RefreshControl pour lisibilité ── */
   /**
