@@ -55,6 +55,8 @@ export default function DreamForm() {
   const [quality, setQuality] = useState<number>(5);
   const [dreamType, setDreamType] =
     useState<'lucid' | 'nightmare' | 'pleasant'>('pleasant');
+  const [dreamQuality, setDreamQuality] =
+    useState<'positiv' | 'neutral' | 'negativ'>('negativ');
 
   // Date/Heure (pickers)
   const [dateObj, setDateObj] = useState<Date>(new Date());
@@ -172,6 +174,7 @@ export default function DreamForm() {
     setSignification('');
     setFavorite(false);
     setDreamType('pleasant');
+    setDreamQuality('neutral');
     setTags([]);
     setTagInput('');
     setDateObj(new Date());
@@ -261,9 +264,10 @@ export default function DreamForm() {
             style={[styles.input, { width: contentWidth, alignSelf: 'center' }]}
           />
 
+          </View>
           {/* Type de rêve */}
           <View style={{ width: contentWidth, alignSelf: 'center', marginBottom: 16 }}>
-            <ThemedText style={styles.fieldLabel}>Type de rêve</ThemedText>
+            <ThemedText style={styles.fieldLabel}>Tonalité globale du rêve</ThemedText>
             <SegmentedButtons
               value={dreamType}
               onValueChange={(v) => setDreamType(v as 'lucid' | 'nightmare' | 'pleasant')}
@@ -275,6 +279,20 @@ export default function DreamForm() {
               ]}
             />
           </View>
+
+          {/* Qualité de rêve */}
+          <View style={{ width: contentWidth, alignSelf: 'center', marginBottom: 16 }}>
+            <ThemedText style={styles.fieldLabel}>Type de rêve</ThemedText>
+            <SegmentedButtons
+              value={dreamQuality}
+              onValueChange={(v) => setDreamQuality(v as 'negativ' | 'neutral' | 'positiv')}
+              style={{ marginTop: 8 }}
+              buttons={[
+                { value: 'negativ', label: 'Négative', labelStyle: { fontSize: width < 350 ? 10 : width < 400 ? 12 : 14 } },
+                { value: 'neutral', label: 'Neutre', labelStyle: { fontSize: width < 350 ? 10 : width < 400 ? 12 : 14 } },
+                { value: 'positiv', label: 'Positive', labelStyle: { fontSize: width < 350 ? 10 : width < 400 ? 12 : 14 } },
+              ]}
+            />
 
           {/* Sliders */}
           <View style={[styles.row, { width: contentWidth, alignSelf: 'center' }]}>
