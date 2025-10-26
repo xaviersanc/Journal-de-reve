@@ -1,14 +1,15 @@
 // app/(tabs)/three.tsx
 
-import { StyleSheet } from 'react-native';
 import { Text, View } from '@/components/Themed';
+import { StyleSheet } from 'react-native';
 
 export default function TabThreeScreen() {
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab Three</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-    </View>
+          <View style={styles.separator} />
+          <Text style={styles.title}>Accueil</Text>
+          <View style={styles.separator} />
+          </View>
   );
 }
 
@@ -23,8 +24,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
-  },
+  marginVertical: 10,
+  height: 0,
+  width: '80%',
+},
 });

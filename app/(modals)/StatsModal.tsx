@@ -1,0 +1,455 @@
+// app/(modals)/StatsModal.tsx
+import { Text as ThemedText, View as ThemedView } from '@/components/Themed';
+import { AsyncStorageConfig } from '@/constants/AsyncStorageConfig';
+import { DreamData } from '@/interfaces/DreamData';
+import { AsyncStorageService } from '@/services/AsyncStorageService';
+import { StatusBar } from 'expo-status-bar';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, View } from 'react-native';
+import { Card, Divider, useTheme } from 'react-native-paper';
+import {
+    VictoryAxis,
+    VictoryBar,
+    VictoryChart,
+    VictoryGroup,
+    VictoryLegend,
+    VictoryLine,
+    VictoryPie,
+    VictoryScatter,
+    VictoryTooltip,
+} from 'victory-native';
+
+// ---------- Utils ----------
+const startOfWeek = (d: Date) => {
+  const n = new Date(d);
+  const day = (n.getDay() + 6) % 7; // lundi=0
+  n.setDate(n.getDate() - day);
+  n.setHours(0, 0, 0, 0);
+  return n;
+};
+const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
+const fmtDay = (d: Date) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit' }).format(d);
+const fmtMonth = (d: Date) => new Intl.DateTimeFormat('fr-FR', { month: 'short', year: 'numeric' }).format(d);
+const parseISO = (iso?: string) => (iso ? new Date(iso) : undefined);
+const moonPhase = (date: Date) => {
+  const synodic = 29.530588853;
+  const knownNewMoon = new Date('2000-01-06T18:14:00Z').getTime() / 86400000;
+  const days = date.getTime() / 86400000 - knownNewMoon;
+  const phase = ((days % synodic) + synodic) % synodic;
+  return phase / synodic; // 0 nouvelle lune, ~0.5 pleine lune
+};
+const topN = (arr: string[], n: number) =>
+  Object.entries(
+    arr.map((s) => s?.trim()).filter(Boolean).reduce<Record<string, number>>((acc, v) => {
+      acc[v!] = (acc[v!] || 0) + 1;
+      return acc;
+    }, {})
+  )
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([name, count]) => ({ name, count }));
+
+// ---------- Heatmap mini ----------
+function CalendarHeatmap({ byDayMap }: { byDayMap: Map<string, number> }) {
+  const today = new Date();
+  const days: { key: string; date: Date; count: number }[] = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(today.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    const key = d.toISOString().slice(0, 10);
+    days.push({ key, date: d, count: byDayMap.get(key) || 0 });
+  }
+  const cols = 6;
+  const rows = 5;
+  const grid: typeof days[][] = [];
+  for (let r = 0; r < rows; r++) grid[r] = [];
+  days.forEach((item, idx) => {
+    const r = Math.floor(idx / cols);
+    grid[r].push(item);
+  });
+
+  return (
+    <View style={{ alignSelf: 'stretch' }}>
+      {grid.map((row, ri) => (
+        <View key={ri} style={{ flexDirection: 'row', marginBottom: 6 }}>
+          {row.map((c) => {
+            const level = Math.min(4, c.count); // 0..4
+            const bg = ['#e0e0e0', '#bdbdbd', '#9e9e9e', '#757575', '#424242'][level];
+            return (
+              <View
+                key={c.key}
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 4,
+                  marginRight: 6,
+                  backgroundColor: bg,
+                }}
+              />
+            );
+          })}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ---------- Composant ----------
+export default function StatsModal() {
+  const theme = useTheme();
+  const [dreams, setDreams] = useState<DreamData[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      const arr = (await AsyncStorageService.getData<DreamData[]>(
+        AsyncStorageConfig.keys.dreamsArrayKey
+      )) || [];
+      setDreams(arr);
+    })();
+  }, []);
+
+  // Normalisation robuste (ne jette pas silencieusement tout)
+  const rows = useMemo(() => {
+    return dreams
+      .map((d) => {
+        const date =
+          parseISO(d.dateISO) ??
+          (d.dateDisplay
+            ? (() => {
+                const [dd, mm, yyyy] = d.dateDisplay.split('/');
+                const y = Number(yyyy),
+                  m = Number(mm),
+                  day = Number(dd);
+                if (!y || !m || !day) return undefined;
+                return new Date(y, m - 1, day);
+              })()
+            : undefined);
+        return {
+          date,
+          week: date ? startOfWeek(date) : undefined,
+          month: date ? startOfMonth(date) : undefined,
+          type: (d as any).dreamType ?? (d.isLucidDream ? 'lucid' : undefined),
+          intensity: (d as any).intensity as number | undefined,
+          quality: (d as any).qualityDream as number | undefined,
+          character: (d as any).character as string | undefined,
+          location: (d as any).location as string | undefined,
+          tags: (d as any).tags as string[] | undefined,
+          text: d.dreamText || '',
+          phase: date ? moonPhase(date) : undefined,
+        };
+      })
+      .filter((r) => r.date); // sans date → pas de courbe/agrégat temporel possible
+  }, [dreams]);
+
+  // Compteurs simples pour l’aperçu minimal
+  const total = dreams.length;
+  const withDate = rows.length;
+
+  // Agrégations
+  const perWeek = useMemo(() => {
+    const m = new Map<string, number>();
+    rows.forEach((r) => {
+      if (!r.week) return;
+      const k = r.week.toISOString();
+      m.set(k, (m.get(k) || 0) + 1);
+    });
+    return [...m.entries()]
+      .map(([k, count]) => ({ x: new Date(k), y: count }))
+      .sort((a, b) => +a.x - +b.x);
+  }, [rows]);
+
+  const perMonth = useMemo(() => {
+    const m = new Map<string, number>();
+    rows.forEach((r) => {
+      if (!r.month) return;
+      const k = r.month.toISOString();
+      m.set(k, (m.get(k) || 0) + 1);
+    });
+    return [...m.entries()]
+      .map(([k, count]) => ({ x: new Date(k), y: count }))
+      .sort((a, b) => +a.x - +b.x);
+  }, [rows]);
+
+  const typePie = useMemo(() => {
+    const counts: Record<string, number> = {};
+    rows.forEach((r) => {
+      const t = r.type ?? 'autres';
+      counts[t] = (counts[t] || 0) + 1;
+    });
+    return Object.entries(counts).map(([x, y]) => ({ x, y }));
+  }, [rows]);
+
+  const frequentWords = useMemo(() => {
+    const stop = new Set(['le','la','les','de','des','et','un','une','du','en','à','au','aux','que','qui','dans','pour','avec','sur']);
+    const bag: Record<string, number> = {};
+    rows.forEach((r) => {
+      r.text
+        .toLowerCase()
+        .replace(/[^\p{L}\s-]/gu, ' ')
+        .split(/\s+/)
+        .filter((w) => w && w.length > 3 && !stop.has(w))
+        .forEach((w) => (bag[w] = (bag[w] || 0) + 1));
+    });
+    return Object.entries(bag)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([label, value]) => ({ x: label, y: value }));
+  }, [rows]);
+
+  const byDayMap = useMemo(() => {
+    const m = new Map<string, number>();
+    rows.forEach((r) => {
+      const key = r.date!.toISOString().slice(0, 10);
+      m.set(key, (m.get(key) || 0) + 1);
+    });
+    return m;
+  }, [rows]);
+
+  const seriesLine = useMemo(() => {
+    return rows
+      .filter((r) => typeof r.intensity === 'number' && typeof r.quality === 'number')
+      .sort((a, b) => +a.date! - +b.date!)
+      .map((r) => ({ date: r.date!, intensity: r.intensity!, quality: r.quality! }));
+  }, [rows]);
+
+  const topCharacters = useMemo(() => topN(rows.map((r) => r.character || '').filter(Boolean), 5), [rows]);
+  const topLocations = useMemo(() => topN(rows.map((r) => r.location || '').filter(Boolean), 5), [rows]);
+  const topTags = useMemo(() => topN(rows.flatMap((r) => r.tags || []), 5), [rows]);
+
+  const corrClarityVsType = useMemo(() => {
+    const buckets: Record<string, number[]> = {};
+    rows.forEach((r) => {
+      const t = r.type ?? 'autres';
+      const val = typeof r.intensity === 'number' ? r.intensity : undefined; // proxy de clarté
+      if (typeof val === 'number') (buckets[t] ||= []).push(val);
+    });
+    return Object.entries(buckets).map(([t, arr]) => ({
+      x: t,
+      y: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0,
+    }));
+  }, [rows]);
+
+  const corrToneVsQuality = useMemo(() => {
+    const buckets: Record<string, number[]> = {};
+    rows.forEach((r) => {
+      const t = r.type ?? 'autres';
+      const q = typeof r.quality === 'number' ? r.quality : undefined;
+      if (typeof q === 'number') (buckets[t] ||= []).push(q);
+    });
+    return Object.entries(buckets).map(([t, arr]) => ({
+      x: t,
+      y: arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0,
+    }));
+  }, [rows]);
+
+  const corrFreqVsMoon = useMemo(() => {
+    const buckets = [0, 0, 0, 0]; // Q1..Q4
+    rows.forEach((r) => {
+      if (typeof r.phase !== 'number') return;
+      const q = Math.min(3, Math.floor(r.phase * 4));
+      buckets[q] += 1;
+    });
+    return buckets.map((v, i) => ({ x: `Q${i + 1}`, y: v }));
+  }, [rows]);
+
+  const colors = {
+    onSurface: theme.colors.onSurface,
+  };
+
+  const noData = withDate === 0;
+
+  return (
+    <ThemedView style={styles.container}>
+      <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
+      <ScrollView contentContainerStyle={styles.scroll}>
+        <ThemedText style={styles.h1}>Statistiques</ThemedText>
+
+        {/* Résumé minimal — toujours visible */}
+        <Card style={styles.card}>
+          <Card.Title title="Aperçu rapide" />
+          <Card.Content>
+            <ThemedText>Total de rêves enregistrés : {total}</ThemedText>
+            <ThemedText>Dont datés (utilisables) : {withDate}</ThemedText>
+            {noData && (
+              <ThemedText style={{ marginTop: 6, opacity: 0.7 }}>
+                Ajoute des rêves avec une date pour afficher les graphiques.
+              </ThemedText>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Nombre de rêves / semaine */}
+        <Card style={styles.card}>
+          <Card.Title title="Nombre de rêves / semaine" />
+          <Card.Content>
+            {perWeek.length ? (
+              <VictoryChart domainPadding={{ x: 12, y: 12 }}>
+                <VictoryAxis
+                  tickFormat={(t) => fmtDay(new Date(t))}
+                  style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }}
+                />
+                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <VictoryBar data={perWeek} labels={({ datum }) => datum.y} labelComponent={<VictoryTooltip />} />
+              </VictoryChart>
+            ) : (
+              <ThemedText style={styles.placeholder}>Aucune donnée hebdomadaire</ThemedText>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Nombre de rêves / mois */}
+        <Card style={styles.card}>
+          <Card.Title title="Nombre de rêves / mois" />
+          <Card.Content>
+            {perMonth.length ? (
+              <VictoryChart domainPadding={{ x: 18, y: 12 }}>
+                <VictoryAxis
+                  tickFormat={(t) => fmtMonth(new Date(t))}
+                  style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }}
+                />
+                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <VictoryBar data={perMonth} />
+              </VictoryChart>
+            ) : (
+              <ThemedText style={styles.placeholder}>Aucune donnée mensuelle</ThemedText>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Répartition des types */}
+        <Card style={styles.card}>
+          <Card.Title title="Répartition des types" />
+          <Card.Content>
+            {typePie.some((d) => d.y > 0) ? (
+              <VictoryPie data={typePie} labels={({ datum }) => `${datum.x}\n${datum.y}`} labelComponent={<VictoryTooltip />} innerRadius={50} />
+            ) : (
+              <ThemedText style={styles.placeholder}>Aucun type disponible</ThemedText>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* “Émotions” → mots-clés du texte */}
+        <Card style={styles.card}>
+          <Card.Title title="Éléments récurrents (texte)" />
+          <Card.Content>
+            {frequentWords.length ? (
+              <VictoryChart domainPadding={{ x: 20, y: 12 }}>
+                <VictoryAxis
+                  tickFormat={(t) => String(t)}
+                  style={{ tickLabels: { angle: -30, fontSize: 10, fill: colors.onSurface } }}
+                />
+                <VictoryAxis dependentAxis style={{ tickLabels: { fontSize: 10, fill: colors.onSurface } }} />
+                <VictoryBar data={frequentWords} />
+              </VictoryChart>
+            ) : (
+              <ThemedText style={styles.placeholder}>Pas assez de texte pour analyser</ThemedText>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Heatmap calendrier */}
+        <Card style={styles.card}>
+          <Card.Title title="Heatmap calendrier (30 jours)" />
+          <Card.Content>
+            {withDate ? <CalendarHeatmap byDayMap={byDayMap} /> : <ThemedText style={styles.placeholder}>Aucune donnée datée</ThemedText>}
+          </Card.Content>
+        </Card>
+
+        {/* Intensité / Qualité */}
+        <Card style={styles.card}>
+          <Card.Title title="Intensité / Qualité dans le temps" />
+          <Card.Content>
+            {seriesLine.length ? (
+              <VictoryChart domainPadding={{ x: 16, y: 12 }}>
+                <VictoryAxis tickFormat={(t) => fmtDay(new Date(t))} style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <VictoryGroup>
+                  <VictoryLine data={seriesLine.map((p) => ({ x: p.date, y: p.intensity }))} />
+                  <VictoryScatter data={seriesLine.map((p) => ({ x: p.date, y: p.intensity }))} />
+                  <VictoryLine data={seriesLine.map((p) => ({ x: p.date, y: p.quality }))} />
+                  <VictoryScatter data={seriesLine.map((p) => ({ x: p.date, y: p.quality }))} />
+                </VictoryGroup>
+                <VictoryLegend x={50} orientation="horizontal" gutter={20} data={[{ name: 'Intensité' }, { name: 'Qualité' }]} />
+              </VictoryChart>
+            ) : (
+              <ThemedText style={styles.placeholder}>Aucune donnée d’intensité/qualité</ThemedText>
+            )}
+          </Card.Content>
+        </Card>
+
+        {/* Top */}
+        <Card style={styles.card}>
+          <Card.Title title="Top personnages / lieux / tags" />
+          <Card.Content>
+            <ThemedText style={styles.topLine}>
+              Personnages: {topCharacters.map((t) => `${t.name} (${t.count})`).join(', ') || '—'}
+            </ThemedText>
+            <Divider style={{ marginVertical: 6, opacity: 0.4 }} />
+            <ThemedText style={styles.topLine}>
+              Lieux: {topLocations.map((t) => `${t.name} (${t.count})`).join(', ') || '—'}
+            </ThemedText>
+            <Divider style={{ marginVertical: 6, opacity: 0.4 }} />
+            <ThemedText style={styles.topLine}>
+              Tags: {topTags.map((t) => `#${t.name} (${t.count})`).join(', ') || '—'}
+            </ThemedText>
+          </Card.Content>
+        </Card>
+
+        {/* Corrélations */}
+        <Card style={styles.card}>
+          <Card.Title title="Corrélations simples" />
+          <Card.Content>
+            <ThemedText style={styles.subH}>Clarté ↔ Type (proxy : intensité moyenne)</ThemedText>
+            {corrClarityVsType.length ? (
+              <VictoryChart domainPadding={{ x: 20, y: 12 }}>
+                <VictoryAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <VictoryBar data={corrClarityVsType} />
+              </VictoryChart>
+            ) : (
+              <ThemedText style={styles.placeholder}>Insuffisant</ThemedText>
+            )}
+
+            <ThemedText style={styles.subH}>Tonalité ↔ Qualité (moy. par type)</ThemedText>
+            {corrToneVsQuality.length ? (
+              <VictoryChart domainPadding={{ x: 20, y: 12 }}>
+                <VictoryAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <VictoryBar data={corrToneVsQuality} />
+              </VictoryChart>
+            ) : (
+              <ThemedText style={styles.placeholder}>Insuffisant</ThemedText>
+            )}
+
+            <ThemedText style={styles.subH}>(Bonus) Fréquence ↔ Phases lunaires</ThemedText>
+            {corrFreqVsMoon.some((d) => d.y > 0) ? (
+              <VictoryChart domainPadding={{ x: 20, y: 12 }}>
+                <VictoryAxis
+                  tickFormat={(t) => ({ Q1: 'Nouv.', Q2: 'Croiss.', Q3: 'Pleine', Q4: 'Décroiss.' } as any)[t] || t}
+                  style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }}
+                />
+                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <VictoryBar data={corrFreqVsMoon} />
+              </VictoryChart>
+            ) : (
+              <ThemedText style={styles.placeholder}>Aucun signal</ThemedText>
+            )}
+          </Card.Content>
+        </Card>
+
+        <View style={{ height: 24 }} />
+      </ScrollView>
+    </ThemedView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1 },
+  scroll: { padding: 16, paddingBottom: 32 },
+  h1: { fontSize: 22, fontWeight: '700', marginBottom: 8 },
+  card: { marginBottom: 12, borderRadius: 12 },
+  placeholder: { opacity: 0.7, fontSize: 12 },
+  subH: { marginTop: 8, marginBottom: 4, fontWeight: '600' },
+  topLine: { fontSize: 13 },
+});

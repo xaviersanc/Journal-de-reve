@@ -55,7 +55,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Enregistrer un rêve',
-          tabBarIcon: ({ color }) => <TabBarIcon name="code" color={color} />,
+          tabBarIcon: ({ color }) => <TabBarIcon name="cloud" color={color} />,
           headerRight: () => (
             <Link href="/modal" asChild>   
               <Pressable>
