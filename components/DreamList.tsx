@@ -83,7 +83,11 @@ const sanitizeTag = (raw: string) => raw.trim().replace(/^#+/, '').replace(/\s+/
  */
 import { useSearch } from './SearchContext';
 
-export default function DreamList() {
+type DreamListProps = {
+  data?: DreamData[];
+};
+
+export default function DreamList({ data: dataProp }: DreamListProps) {
   const { width } = useWindowDimensions();
   const columns = width >= 1200 ? 3 : width >= 768 ? 2 : 1;
   const { criteria } = useSearch();
@@ -115,6 +119,7 @@ export default function DreamList() {
 
   // Filtrage selon les critères de recherche
   const filteredData = useMemo(() => {
+    if (dataProp) return dataProp;
     if (!criteria) return data;
     return data.filter((dream) => {
       // Recherche simple : mot-clé dans la description
@@ -147,7 +152,7 @@ export default function DreamList() {
       }
       return true;
     });
-  }, [data, criteria]);
+  }, [data, criteria, dataProp]);
 
   /* ── État éditeur (groupé pour compacité) ── */
   type DreamType = 'lucid' | 'nightmare' | 'pleasant' | undefined;

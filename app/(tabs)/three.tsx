@@ -2,17 +2,17 @@
 
 import DreamList from '@/components/DreamList';
 import { useSearch } from '@/components/SearchContext';
-import { useState } from 'react';
-import { StyleSheet, View, useWindowDimensions, Platform } from 'react-native';
-import { Button, Card, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { useState } from 'react';
+import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Button, Card, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 
 /**
  * Page d'accueil de l'application Journal de rêve (onglet Accueil)
  * - Recherche simple (mot-clé dans la description)
  * - Recherche avancée (type, personnage, période, mot-clé/tag)
  */
-
+export default function TabThreeScreen() {
   const [search, setSearch] = useState('');
   const [advanced, setAdvanced] = useState(false);
   const [type, setType] = useState<'lucid' | 'nightmare' | 'pleasant' | ''>('');
