@@ -192,9 +192,10 @@ export default function DreamForm() {
       showsVerticalScrollIndicator={false}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        {/* Correction : encapsule tout le contenu dans une seule View pour éviter l'erreur React.Children.only */}
         <View style={styles.container}>
           {/* Date / Heure */}
-          <View style={[styles.row, { width: contentWidth, alignSelf: 'center' }]}>
+          <View style={[styles.row, { width: contentWidth, alignSelf: 'center' }]}> 
             <TextInput
               label="Date"
               value={dateDisplay}
@@ -264,7 +265,6 @@ export default function DreamForm() {
             style={[styles.input, { width: contentWidth, alignSelf: 'center' }]}
           />
 
-          </View>
           {/* Type de rêve */}
           <View style={{ width: contentWidth, alignSelf: 'center', marginBottom: 16 }}>
             <ThemedText style={styles.fieldLabel}>Tonalité globale du rêve</ThemedText>
@@ -293,10 +293,11 @@ export default function DreamForm() {
                 { value: 'positiv', label: 'Positive', labelStyle: { fontSize: width < 350 ? 10 : width < 400 ? 12 : 14 } },
               ]}
             />
+          </View>
 
           {/* Sliders */}
-          <View style={[styles.row, { width: contentWidth, alignSelf: 'center' }]}>
-            <View style={[styles.sliderHalf, { marginRight: 8 }]}>
+          <View style={[styles.row, { width: contentWidth, alignSelf: 'center' }]}> 
+            <View style={[styles.sliderHalf, { marginRight: 8 }]}> 
               <ThemedText style={styles.sliderLabel}>Intensity: {intensity}</ThemedText>
               <Slider
                 value={intensity}
@@ -307,7 +308,7 @@ export default function DreamForm() {
                 style={styles.slider}
               />
             </View>
-            <View style={styles.sliderHalf}>
+            <View style={styles.sliderHalf}> 
               <ThemedText style={styles.sliderLabel}>Quality: {quality}</ThemedText>
               <Slider
                 value={quality}
@@ -331,7 +332,6 @@ export default function DreamForm() {
             style={[styles.input, { width: contentWidth, alignSelf: 'center' }]}
           />
 
-
           {/* Description */}
           <TextInput
             label="Description du rêve"
@@ -342,8 +342,6 @@ export default function DreamForm() {
             numberOfLines={4}
             style={[styles.input, { width: contentWidth, alignSelf: 'center' }]}
           />
-
-
 
           {/* Hashtags (3 max) */}
           <View style={{ width: contentWidth, alignSelf: 'center', marginBottom: 8 }}>
