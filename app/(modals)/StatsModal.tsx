@@ -41,6 +41,10 @@ const topN = (arr: string[], n: number) =>
     .map(([name, count]) => ({ name, count }));
 
 // ---------- Heatmap mini ----------
+/**
+ * Affiche un calendrier sur 30 jours avec un "ok" vert (✔️) sur chaque jour où un rêve a été validé.
+ * @param byDayMap Map des jours (YYYY-MM-DD) vers le nombre de rêves ce jour-là
+ */
 function CalendarHeatmap({ byDayMap }: { byDayMap: Map<string, number> }) {
   const today = new Date();
   const days: { key: string; date: Date; count: number }[] = [];
@@ -64,22 +68,24 @@ function CalendarHeatmap({ byDayMap }: { byDayMap: Map<string, number> }) {
     <View style={{ alignSelf: 'stretch' }}>
       {grid.map((row, ri) => (
         <View key={ri} style={{ flexDirection: 'row', marginBottom: 6 }}>
-          {row.map((c) => {
-            const level = Math.min(4, c.count); // 0..4
-            const bg = ['#e0e0e0', '#bdbdbd', '#9e9e9e', '#757575', '#424242'][level];
-            return (
-              <View
-                key={c.key}
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 4,
-                  marginRight: 6,
-                  backgroundColor: bg,
-                }}
-              />
-            );
-          })}
+          {row.map((c) => (
+            <View
+              key={c.key}
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 6,
+                marginRight: 6,
+                backgroundColor: '#e0e0e0',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {c.count > 0 ? (
+                <ThemedText style={{ color: 'green', fontSize: 18 }}>✔️</ThemedText>
+              ) : null}
+            </View>
+          ))}
         </View>
       ))}
     </View>
@@ -308,12 +314,16 @@ export default function StatsModal() {
           </Card.Content>
         </Card>
 
-        {/* Répartition des types */}
+        {/* Répartition des types (barres) */}
         <Card style={styles.card}>
-          <Card.Title title="Répartition des types" />
+          <Card.Title title="Nombre de chaque type de rêve" />
           <Card.Content>
             {typePie.some((d) => d.y > 0) ? (
-              <Victory.VictoryPie data={typePie} labels={({ datum }: { datum: any }) => `${datum.x}\n${datum.y}`} labelComponent={<Victory.VictoryTooltip />} innerRadius={50} />
+              <Victory.VictoryChart domainPadding={{ x: 30, y: 12 }}>
+                <Victory.VictoryAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryBar data={typePie} labels={({ datum }: { datum: any }) => datum.y} labelComponent={<Victory.VictoryTooltip />} />
+              </Victory.VictoryChart>
             ) : (
               <ThemedText style={styles.placeholder}>Aucun type disponible</ThemedText>
             )}
