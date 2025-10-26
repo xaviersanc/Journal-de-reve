@@ -1,52 +1,33 @@
-
-
-import DreamList from '@/components/DreamList';
-import { useSearch } from '@/components/SearchContext';
+import { useNavigation } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, View, useWindowDimensions, Platform } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, SegmentedButtons, Text, TextInput } from 'react-native-paper';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 /**
- * Page d'accueil de l'application Journal de rêve (onglet Accueil)
+ * Page d'accueil de l'application Journal de rêve
  * - Recherche simple (mot-clé dans la description)
  * - Recherche avancée (type, personnage, période, mot-clé/tag)
  */
-
+export default function HomeScreen() {
+  const navigation = useNavigation();
   const [search, setSearch] = useState('');
   const [advanced, setAdvanced] = useState(false);
+  // Champs avancés
   const [type, setType] = useState<'lucid' | 'nightmare' | 'pleasant' | ''>('');
   const [character, setCharacter] = useState('');
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
   const [tag, setTag] = useState('');
-  const { setCriteria } = useSearch();
-  const { width } = useWindowDimensions();
 
-  // Helpers pour affichage date
-  const formatDate = (d: Date) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
-  const periodStartDisplay = periodStart ? formatDate(new Date(periodStart)) : '';
-  const periodEndDisplay = periodEnd ? formatDate(new Date(periodEnd)) : '';
-
-  // Gestion sélection date
-  const onChangeStart = (_: DateTimePickerEvent, selected?: Date) => {
-    setShowStartPicker(false);
-    if (selected) setPeriodStart(selected.toISOString().slice(0, 10));
-  };
-  const onChangeEnd = (_: DateTimePickerEvent, selected?: Date) => {
-    setShowEndPicker(false);
-    if (selected) setPeriodEnd(selected.toISOString().slice(0, 10));
-  };
-
-  // Soumission de la recherche : met à jour le contexte (affiche résultats dessous)
+  // Soumission de la recherche (à adapter selon navigation ou filtrage)
   const handleSearch = () => {
-    setCriteria({ search, type, character, periodStart, periodEnd, tag });
+    // navigation.navigate('DreamList', { ... })
+    // Pour l'instant, juste log
+    console.log({ search, type, character, periodStart, periodEnd, tag });
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Journal de rêve</Text>
       <Text style={styles.subtitle}>Retrouve, explore et analyse tes rêves facilement.</Text>
 
@@ -82,19 +63,17 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
               mode="outlined"
               style={{ marginBottom: 8 }}
             />
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-              <SegmentedButtons
-                value={type}
-                onValueChange={v => setType(v as any)}
-                style={{ flex: 1 }}
-                buttons={[
-                  { value: '', label: 'Tous' },
-                  { value: 'lucid', label: 'Lucide' },
-                  { value: 'nightmare', label: 'Cauchemar' },
-                  { value: 'pleasant', label: 'Agréable' },
-                ]}
-              />
-            </View>
+            <SegmentedButtons
+              value={type}
+              onValueChange={v => setType(v as any)}
+              style={{ marginBottom: 8 }}
+              buttons={[
+                { value: '', label: 'Tous' },
+                { value: 'lucid', label: 'Lucide' },
+                { value: 'nightmare', label: 'Cauchemar' },
+                { value: 'pleasant', label: 'Agréable' },
+              ]}
+            />
             <TextInput
               label="Personnage principal"
               value={character}
@@ -105,41 +84,19 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
             <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
               <TextInput
                 label="Début (AAAA-MM-JJ)"
-                value={periodStartDisplay}
+                value={periodStart}
+                onChangeText={setPeriodStart}
                 mode="outlined"
                 style={{ flex: 1 }}
-                editable={false}
-                onPressIn={() => setShowStartPicker(true)}
-                right={<TextInput.Icon icon="calendar" onPress={() => setShowStartPicker(true)} />}
               />
               <TextInput
                 label="Fin (AAAA-MM-JJ)"
-                value={periodEndDisplay}
+                value={periodEnd}
+                onChangeText={setPeriodEnd}
                 mode="outlined"
                 style={{ flex: 1 }}
-                editable={false}
-                onPressIn={() => setShowEndPicker(true)}
-                right={<TextInput.Icon icon="calendar" onPress={() => setShowEndPicker(true)} />}
               />
             </View>
-            {showStartPicker && (
-              <DateTimePicker
-                value={periodStart ? new Date(periodStart) : new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                onChange={onChangeStart}
-                locale="fr-FR"
-              />
-            )}
-            {showEndPicker && (
-              <DateTimePicker
-                value={periodEnd ? new Date(periodEnd) : new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                onChange={onChangeEnd}
-                locale="fr-FR"
-              />
-            )}
             <TextInput
               label="Mot-clé ou hashtag (#)"
               value={tag}
@@ -154,19 +111,13 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
           </Card.Content>
         </Card>
       )}
-      {/* Résultats de la recherche (affichés sous la recherche rapide ou avancée) */}
-      <View style={{ width: '100%', maxWidth: 600, alignSelf: 'center', marginTop: 8, flex: 1 }}>
-        <DreamList />
-      </View>
-    </View>
+    </ScrollView>
   );
 }
 
-
-// Styles à placer après le composant pour éviter l'erreur d'utilisation avant déclaration
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'flex-start',
     padding: 24,

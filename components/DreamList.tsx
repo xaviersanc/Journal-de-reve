@@ -81,9 +81,12 @@ const sanitizeTag = (raw: string) => raw.trim().replace(/^#+/, '').replace(/\s+/
  * Ne prend pas de paramètres.
  * @returns Un composant React (JSX.Element) affichant la liste et l'éditeur de rêves.
  */
+import { useSearch } from './SearchContext';
+
 export default function DreamList() {
   const { width } = useWindowDimensions();
   const columns = width >= 1200 ? 3 : width >= 768 ? 2 : 1;
+  const { criteria } = useSearch();
   /* ── Données liste ── */
   const [data, setData] = useState<DreamData[]>([]);
   const [loading, setLoading] = useState(false);
@@ -109,6 +112,42 @@ export default function DreamList() {
       load();
     }, [load])
   );
+
+  // Filtrage selon les critères de recherche
+  const filteredData = useMemo(() => {
+    if (!criteria) return data;
+    return data.filter((dream) => {
+      // Recherche simple : mot-clé dans la description
+      if (criteria.search && !(dream.dreamText || '').toLowerCase().includes(criteria.search.toLowerCase())) {
+        return false;
+      }
+      // Type
+      if (criteria.type && dream.dreamType !== criteria.type) {
+        return false;
+      }
+      // Personnage : cherche une correspondance dans toute la string (pas de séparation)
+      if (criteria.character && !((dream as any).character || '').toLowerCase().includes(criteria.character.toLowerCase())) {
+        return false;
+      }
+      // Période
+      if (criteria.periodStart) {
+        const d = dream.dateISO ? new Date(dream.dateISO) : undefined;
+        if (!d || d < new Date(criteria.periodStart)) return false;
+      }
+      if (criteria.periodEnd) {
+        const d = dream.dateISO ? new Date(dream.dateISO) : undefined;
+        if (!d || d > new Date(criteria.periodEnd)) return false;
+      }
+      // Tag
+      if (criteria.tag) {
+        const tagNorm = criteria.tag.replace(/^#+/, '').toLowerCase();
+        if (!dream.tags || !dream.tags.some(t => t.toLowerCase().includes(tagNorm))) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [data, criteria]);
 
   /* ── État éditeur (groupé pour compacité) ── */
   type DreamType = 'lucid' | 'nightmare' | 'pleasant' | undefined;
@@ -337,7 +376,7 @@ export default function DreamList() {
     <>
       {/* Liste des rêves */}
       <FlatList
-        data={data}
+        data={filteredData}
         keyExtractor={(_, i) => String(i)}
         renderItem={renderItem}
         numColumns={columns}
@@ -345,7 +384,7 @@ export default function DreamList() {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={refresher}
-        ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve enregistré</ThemedText></View>}
+        ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve trouvé</ThemedText></View>}
       />
 
       {/* Modale éditeur */}
