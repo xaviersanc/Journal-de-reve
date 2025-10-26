@@ -10,7 +10,7 @@ import { Card, Divider, useTheme } from 'react-native-paper';
 import * as VictoryNative from 'victory-native';
 const Victory: any = VictoryNative;
 
-// ---------- Utils ----------
+// ====== Fonctions utilitaires ======
 const startOfWeek = (d: Date) => {
   const n = new Date(d);
   const day = (n.getDay() + 6) % 7; // lundi=0
@@ -40,11 +40,8 @@ const topN = (arr: string[], n: number) =>
     .slice(0, n)
     .map(([name, count]) => ({ name, count }));
 
-// ---------- Heatmap mini ----------
-/**
- * Affiche un calendrier sur 30 jours avec un "ok" vert (✔️) sur chaque jour où un rêve a été validé.
- * @param byDayMap Map des jours (YYYY-MM-DD) vers le nombre de rêves ce jour-là
- */
+// ====== Composant Heatmap calendrier (30 jours) ======
+// Affiche un calendrier sur 30 jours avec un "ok" vert (✔️) sur chaque jour où un rêve a été validé.
 function CalendarHeatmap({ byDayMap }: { byDayMap: Map<string, number> }) {
   const today = new Date();
   const days: { key: string; date: Date; count: number }[] = [];
@@ -92,7 +89,7 @@ function CalendarHeatmap({ byDayMap }: { byDayMap: Map<string, number> }) {
   );
 }
 
-// ---------- Composant ----------
+// ====== Composant principal : StatsModal ======
 export default function StatsModal() {
   const theme = useTheme();
   const [dreams, setDreams] = useState<DreamData[]>([]);
@@ -106,7 +103,7 @@ export default function StatsModal() {
     })();
   }, []);
 
-  // Normalisation robuste (ne jette pas silencieusement tout)
+  // Normalisation robuste des données de rêve (garde les entrées valides)
   const rows = useMemo(() => {
     return dreams
       .map((d) => {
@@ -139,11 +136,12 @@ export default function StatsModal() {
       .filter((r) => r.date); // sans date → pas de courbe/agrégat temporel possible
   }, [dreams]);
 
-  // Compteurs simples pour l’aperçu minimal
+  // Compteurs simples pour l’aperçu rapide
   const total = dreams.length;
   const withDate = rows.length;
 
-  // Agrégations
+  // Agrégations temporelles et catégorielles
+  // Nombre de rêves par semaine
   const perWeek = useMemo(() => {
     const m = new Map<string, number>();
     rows.forEach((r) => {
@@ -156,6 +154,7 @@ export default function StatsModal() {
       .sort((a, b) => +a.x - +b.x);
   }, [rows]);
 
+  // Nombre de rêves par mois
   const perMonth = useMemo(() => {
     const m = new Map<string, number>();
     rows.forEach((r) => {
@@ -168,6 +167,7 @@ export default function StatsModal() {
       .sort((a, b) => +a.x - +b.x);
   }, [rows]);
 
+  // Répartition des types de rêves
   const typePie = useMemo(() => {
     const counts: Record<string, number> = {};
     rows.forEach((r) => {
@@ -177,6 +177,7 @@ export default function StatsModal() {
     return Object.entries(counts).map(([x, y]) => ({ x, y }));
   }, [rows]);
 
+  // Extraction des mots fréquents dans les textes de rêve (hors stopwords)
   const frequentWords = useMemo(() => {
     const stop = new Set(['le','la','les','de','des','et','un','une','du','en','à','au','aux','que','qui','dans','pour','avec','sur']);
     const bag: Record<string, number> = {};
@@ -194,6 +195,7 @@ export default function StatsModal() {
       .map(([label, value]) => ({ x: label, y: value }));
   }, [rows]);
 
+  // Mapping des jours (YYYY-MM-DD) vers le nombre de rêves ce jour-là
   const byDayMap = useMemo(() => {
     const m = new Map<string, number>();
     rows.forEach((r) => {
@@ -203,6 +205,7 @@ export default function StatsModal() {
     return m;
   }, [rows]);
 
+  // Série temporelle Intensité/Qualité pour les courbes
   const seriesLine = useMemo(() => {
     return rows
       .filter((r) => typeof r.intensity === 'number' && typeof r.quality === 'number')
@@ -210,10 +213,12 @@ export default function StatsModal() {
       .map((r) => ({ date: r.date!, intensity: r.intensity!, quality: r.quality! }));
   }, [rows]);
 
+  // Top 5 personnages, lieux et tags les plus récurrents
   const topCharacters = useMemo(() => topN(rows.map((r) => r.character || '').filter(Boolean), 5), [rows]);
   const topLocations = useMemo(() => topN(rows.map((r) => r.location || '').filter(Boolean), 5), [rows]);
   const topTags = useMemo(() => topN(rows.flatMap((r) => r.tags || []), 5), [rows]);
 
+  // Corrélation : intensité moyenne (proxy clarté) par type de rêve
   const corrClarityVsType = useMemo(() => {
     const buckets: Record<string, number[]> = {};
     rows.forEach((r) => {
@@ -227,6 +232,7 @@ export default function StatsModal() {
     }));
   }, [rows]);
 
+  // Corrélation : qualité moyenne par type de rêve
   const corrToneVsQuality = useMemo(() => {
     const buckets: Record<string, number[]> = {};
     rows.forEach((r) => {
@@ -240,6 +246,7 @@ export default function StatsModal() {
     }));
   }, [rows]);
 
+  // Corrélation : fréquence des rêves selon les phases lunaires
   const corrFreqVsMoon = useMemo(() => {
     const buckets = [0, 0, 0, 0]; // Q1..Q4
     rows.forEach((r) => {
