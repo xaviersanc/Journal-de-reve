@@ -326,32 +326,51 @@ export default function DreamForm() {
   );
 }
 
+/* ──────────────────────── Styles ──────────────────────── */
 const styles = StyleSheet.create({
   container: {
-    padding: 16,
-    flexGrow: 1,
-    justifyContent: 'flex-start',
+    padding: 16,              // marge interne globale du formulaire
+    flexGrow: 1,              // permet au ScrollView de s’étendre en hauteur
+    justifyContent: 'flex-start', // aligne les blocs depuis le haut
   },
-  input: { marginBottom: 16 },
-  button: { marginTop: 8 },
+  input: { 
+    marginBottom: 16,         // espacement vertical standard entre champs
+  },
+  button: { 
+    marginTop: 8,             // léger espace au-dessus du bouton d’enregistrement
+  },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    flexDirection: 'row',     // place les enfants sur une ligne (Date/Heure, sliders)
+    justifyContent: 'space-between', // espace distribué entre les deux colonnes
+    marginBottom: 16,         // séparation avec le bloc suivant
   },
-  half: { flex: 1 },
-  slider: { width: '100%', height: 40 },
-  sliderLabel: { marginBottom: 4, fontSize: 12 },
-  sliderHalf: { flex: 1 },
-  fieldLabel: { fontSize: 12, marginBottom: 4 },
+  half: { 
+    flex: 1,                  // moitié de la largeur disponible (colonne)
+  },
+  slider: { 
+    width: '100%',            // le slider prend toute la largeur de sa colonne
+    height: 40,               // hauteur suffisante pour une prise en main confortable
+  },
+  sliderLabel: { 
+    marginBottom: 4,          // espace entre le libellé et le slider
+    fontSize: 12,             // libellé discret
+  },
+  sliderHalf: { 
+    flex: 1,                  // colonne de slider (utilisé par paire)
+  },
+  fieldLabel: { 
+    fontSize: 12,             // petit libellé au-dessus des contrôles (ex: “Type de rêve”)
+    marginBottom: 4,          // espace au-dessus du composant associé
+  },
   tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 4,
+    flexDirection: 'row',     // affichage des chips sur une ligne
+    flexWrap: 'wrap',         // retour à la ligne automatique si débordement
+    gap: 8,                   // espacement uniforme entre chips
+    marginTop: 4,             // espace entre le libellé et la rangée de tags
   },
   tagChip: {
-    marginRight: 8,
-    marginBottom: 8,
+    marginRight: 8,           // espacement horizontal entre chips (fallback si gap non supporté)
+    marginBottom: 8,          // espacement vertical entre lignes de chips
   },
 });
+
