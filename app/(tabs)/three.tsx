@@ -2,8 +2,8 @@ import DreamList from '@/components/DreamList';
 import { useSearch } from '@/components/SearchContext';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Keyboard, Platform, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
-import { Button, Card, SegmentedButtons, Text, TextInput, useTheme } from 'react-native-paper';
+import { Keyboard, Platform, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Button, Card, SegmentedButtons, Text, TextInput } from 'react-native-paper';
 
 /**
  * Accueil / Recherche (Light + Dark)
@@ -163,22 +163,14 @@ export default function TabThreeScreen() {
     </View>
   );
 
-  return searchLaunched ? (
-    <ScrollView
-      contentContainerStyle={{ paddingBottom: 32, backgroundColor: bgColor }}
-      keyboardShouldPersistTaps="handled"
-      showsVerticalScrollIndicator={false}
-    >
-      {renderHeader()}
-      <DreamList />
-    </ScrollView>
-  ) : (
-    <ScrollView
-      contentContainerStyle={{ paddingBottom: 32, backgroundColor: bgColor }}
-      showsVerticalScrollIndicator={false}
-    >
-      {renderHeader()}
-    </ScrollView>
+  return (
+    <>
+      {searchLaunched ? (
+        <DreamList ListHeaderComponent={renderHeader} />
+      ) : (
+        renderHeader()
+      )}
+    </>
   );
 }
 

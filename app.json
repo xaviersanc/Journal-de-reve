@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "live-app",
+    "name": "Journal de rêve",
     "slug": "live-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -23,7 +23,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.liveapp"
+      "package": "com.electro33.liveapp.journaldereve"
     },
     "web": {
       "bundler": "metro",
@@ -35,6 +35,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "099bf44c-dc1a-4d03-bfce-44d87feb0a13"
+      }
     }
   }
 }
