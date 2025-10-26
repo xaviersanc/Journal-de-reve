@@ -9,8 +9,6 @@ import { AsyncStorageService } from '@/services/AsyncStorageService';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Slider from '@react-native-community/slider';
 import { useFocusEffect } from '@react-navigation/native';
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, FlatList, Platform, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
@@ -438,7 +436,8 @@ async function handleExportDream(dream: DreamData) {
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={refresher}
-  ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve</ThemedText></View>}
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve</ThemedText></View>}
         ListHeaderComponent={ListHeaderComponent}
       />
 
