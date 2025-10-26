@@ -1,54 +1,50 @@
 // components/DreamList.tsx
+// Liste + éditeur de rêves (version compacte, commentée par blocs)
+
 import { Text as ThemedText } from '@/components/Themed';
 import { AsyncStorageConfig } from '@/constants/AsyncStorageConfig';
 import { DreamData } from '@/interfaces/DreamData';
 import { AsyncStorageService } from '@/services/AsyncStorageService';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Slider from '@react-native-community/slider';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Platform, RefreshControl, StyleSheet, View } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import {
-    Button,
-    Card,
-    Checkbox,
-    Chip,
-    Divider,
-    Modal,
-    Portal,
-    SegmentedButtons,
-    TextInput,
+  Button,
+  Card,
+  Checkbox,
+  Chip,
+  Divider,
+  Modal,
+  Portal,
+  SegmentedButtons,
+  TextInput,
 } from 'react-native-paper';
 
+/* ──────────────────────── Helpers format ──────────────────────── */
 const fmtDate = (iso?: string) => {
   if (!iso) return { date: '', time: '' };
   const d = new Date(iso);
-  const date = new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
-  const time = new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
-  return { date, time };
+  return {
+    date: new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d),
+    time: new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d),
+  };
 };
-const formatDate = (d: Date) =>
-  new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
-const formatTime = (d: Date) =>
-  new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
-
-const typeLabel = (t?: DreamData['dreamType'], isLucid?: boolean) => {
-  if (t === 'lucid' || isLucid) return 'Rêve lucide';
-  if (t === 'nightmare') return 'Cauchemar';
-  if (t === 'pleasant') return 'Rêve agréable';
-  return '—';
-};
-
+const formatDate = (d: Date) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+const formatTime = (d: Date) => new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+const typeLabel = (t?: DreamData['dreamType'], isLucid?: boolean) =>
+  t === 'lucid' || isLucid ? 'Rêve lucide' : t === 'nightmare' ? 'Cauchemar' : t === 'pleasant' ? 'Rêve agréable' : '—';
 const deriveTitle = (title?: string, text?: string) => {
-  if (title && title.trim()) return title.trim();
+  if (title?.trim()) return title.trim();
   const raw = (text || '').trim().split('\n')[0];
-  return raw.length > 0 ? (raw.length > 80 ? raw.slice(0, 80) + '…' : raw) : 'Sans titre';
+  return raw ? (raw.length > 80 ? raw.slice(0, 80) + '…' : raw) : 'Sans titre';
 };
-
 const sanitizeTag = (raw: string) => raw.trim().replace(/^#+/, '').replace(/\s+/g, '-').toLowerCase();
 
+/* ──────────────────────── Composant principal ──────────────────────── */
 export default function DreamList() {
-  // Liste
+  /* ── Données liste ── */
   const [data, setData] = useState<DreamData[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -64,84 +60,79 @@ export default function DreamList() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Éditeur (tous les champs)
-  const [editorVisible, setEditorVisible] = useState(false);
+  /* ── État éditeur (groupé pour compacité) ── */
+  type DreamType = 'lucid' | 'nightmare' | 'pleasant' | undefined;
+  const [visible, setVisible] = useState(false);
   const [uiIndex, setUiIndex] = useState<number | null>(null);
+  const [ed, setEd] = useState({
+    title: '',
+    character: '',
+    location: '',
+    text: '',
+    type: undefined as DreamType,
+    favorite: false,
+    intensity: 5,
+    quality: 5,
+    tags: [] as string[],
+  });
+  const setF = <K extends keyof typeof ed>(k: K) => (v: (typeof ed)[K]) => setEd(s => ({ ...s, [k]: v }));
 
-  const [edTitle, setEdTitle] = useState('');
-  const [edCharacter, setEdCharacter] = useState('');
-  const [edLocation, setEdLocation] = useState('');
-  const [edText, setEdText] = useState('');
-  const [edType, setEdType] = useState<'lucid' | 'nightmare' | 'pleasant' | undefined>(undefined);
-  const [edIsFav, setEdIsFav] = useState<boolean>(false);
-  const [edIntensity, setEdIntensity] = useState<number>(5);
-  const [edQuality, setEdQuality] = useState<number>(5);
-  const [edTags, setEdTags] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState('');
-
+  /* ── Date / heure de l’éditeur ── */
   const [dateObj, setDateObj] = useState<Date>(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showDate, setShowDate] = useState(false);
+  const [showTime, setShowTime] = useState(false);
   const dateDisplay = formatDate(dateObj);
   const timeDisplay = formatTime(dateObj);
 
+  /* ── Ouvrir/fermer l’éditeur ── */
   const openEditor = (item: DreamData, indexInUI: number) => {
     setUiIndex(indexInUI);
-    setEdTitle(item.title || '');
-    setEdCharacter(item.character || '');
-    setEdLocation((item as any).location || ''); // compat si non typé dans l’interface
-    setEdText(item.dreamText || '');
-    setEdType(item.dreamType || (item.isLucidDream ? 'lucid' : undefined));
-    setEdIsFav(Boolean((item as any).favorite));
-    setEdIntensity(typeof (item as any).intensity === 'number' ? (item as any).intensity : 5);
-    setEdQuality(typeof (item as any).qualityDream === 'number' ? (item as any).qualityDream : 5);
-    setEdTags(item.tags || []);
-    setTagInput('');
-
-    // date/time
-    if (item.dateISO) setDateObj(new Date(item.dateISO));
-    else setDateObj(new Date());
-    setEditorVisible(true);
+    setEd({
+      title: item.title || '',
+      character: (item as any).character || '',
+      location: (item as any).location || '',
+      text: item.dreamText || '',
+      type: item.dreamType || (item.isLucidDream ? 'lucid' : undefined),
+      favorite: Boolean((item as any).favorite),
+      intensity: typeof (item as any).intensity === 'number' ? (item as any).intensity : 5,
+      quality: typeof (item as any).qualityDream === 'number' ? (item as any).qualityDream : 5,
+      tags: item.tags || [],
+    });
+    setDateObj(item.dateISO ? new Date(item.dateISO) : new Date());
+    setVisible(true);
   };
+  const closeEditor = () => { setVisible(false); setUiIndex(null); };
 
-  const closeEditor = () => {
-    setEditorVisible(false);
-    setUiIndex(null);
-    setTagInput('');
-  };
-
+  /* ── Tags (ajout/suppression) ── */
+  const [tagInput, setTagInput] = useState('');
   const addTag = () => {
-    if (edTags.length >= 3) return;
+    if (ed.tags.length >= 3) return;
     const t = sanitizeTag(tagInput);
-    if (!t) return;
-    if (edTags.includes(t)) return;
-    setEdTags((prev) => [...prev, t]);
-    setTagInput('');
+    if (!t || ed.tags.includes(t)) return;
+    setEd(s => ({ ...s, tags: [...s.tags, t] })); setTagInput('');
   };
-  const removeTag = (t: string) => setEdTags((prev) => prev.filter((x) => x !== t));
+  const removeTag = (t: string) => setEd(s => ({ ...s, tags: s.tags.filter(x => x !== t) }));
 
+  /* ── Date/Time pickers ── */
   const onChangeDate = (_: DateTimePickerEvent, selected?: Date) => {
-    setShowDatePicker(false);
-    if (!selected) return;
-    const merged = new Date(dateObj);
-    merged.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
+    setShowDate(false); if (!selected) return;
+    const merged = new Date(dateObj); merged.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
     setDateObj(merged);
   };
   const onChangeTime = (_: DateTimePickerEvent, selected?: Date) => {
-    setShowTimePicker(false);
-    if (!selected) return;
-    const merged = new Date(dateObj);
-    merged.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
+    setShowTime(false); if (!selected) return;
+    const merged = new Date(dateObj); merged.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
     setDateObj(merged);
   };
 
-  // Map index affiché -> index stockage (car data est reversed)
+  /* ── Récupérer l’index stockage (liste inversée) ── */
   const getStorageIndex = async (indexInUI: number) => {
     const arr = await AsyncStorageService.getData<DreamData[]>(AsyncStorageConfig.keys.dreamsArrayKey);
     const len = Array.isArray(arr) ? arr.length : 0;
     return len - 1 - indexInUI;
   };
 
+  /* ── Enregistrer / Supprimer ── */
   const saveEdits = async () => {
     if (uiIndex === null) return;
     const storageIdx = await getStorageIndex(uiIndex);
@@ -151,17 +142,16 @@ export default function DreamList() {
     const prev = arr[storageIdx];
     const next: DreamData = {
       ...prev,
-      title: edTitle || undefined,
-      character: edCharacter || undefined,
-      dreamText: edText,
-      dreamType: edType,
-      isLucidDream: edType ? edType === 'lucid' : prev.isLucidDream,
-      tags: edTags.length ? edTags : undefined,
-      // champs supplémentaires
-      ...(edLocation ? { location: edLocation } : {}),
-      favorite: edIsFav,
-      intensity: edIntensity,
-      qualityDream: edQuality,
+      title: ed.title || undefined,
+      character: ed.character || undefined,
+      dreamText: ed.text,
+      dreamType: ed.type,
+      isLucidDream: ed.type ? ed.type === 'lucid' : prev.isLucidDream,
+      tags: ed.tags.length ? ed.tags : undefined,
+      ...(ed.location ? { location: ed.location } : {}),
+      favorite: ed.favorite,
+      intensity: ed.intensity,
+      qualityDream: ed.quality,
       dateISO: dateObj.toISOString(),
       dateDisplay: formatDate(dateObj),
       timeDisplay: formatTime(dateObj),
@@ -169,8 +159,7 @@ export default function DreamList() {
 
     arr[storageIdx] = next;
     await AsyncStorageService.setData(AsyncStorageConfig.keys.dreamsArrayKey, arr);
-    await load();
-    closeEditor();
+    await load(); closeEditor();
   };
 
   const deleteDream = async () => {
@@ -180,13 +169,12 @@ export default function DreamList() {
     if (storageIdx < 0 || storageIdx >= arr.length) return;
     arr.splice(storageIdx, 1);
     await AsyncStorageService.setData(AsyncStorageConfig.keys.dreamsArrayKey, arr);
-    await load();
-    closeEditor();
+    await load(); closeEditor();
   };
 
+  /* ── Rendu d’un item (carte) ── */
   const renderItem = ({ item, index }: { item: DreamData; index: number }) => {
-    const { date, time } =
-      item.dateDisplay && item.timeDisplay ? { date: item.dateDisplay, time: item.timeDisplay } : fmtDate(item.dateISO);
+    const { date, time } = item.dateDisplay && item.timeDisplay ? { date: item.dateDisplay, time: item.timeDisplay } : fmtDate(item.dateISO);
     const tLabel = typeLabel(item.dreamType, item.isLucidDream);
     const title = deriveTitle(item.title, item.dreamText);
 
@@ -194,20 +182,17 @@ export default function DreamList() {
       <Card style={styles.card} mode="contained" onPress={() => openEditor(item, index)}>
         <Card.Content style={{ paddingBottom: 8 }}>
           <View style={styles.row}>
-            <ThemedText style={styles.dateText}>
-              {date || '—'} {time ? `• ${time}` : ''}
-            </ThemedText>
+            <ThemedText style={styles.dateText}>{date || '—'} {time ? `• ${time}` : ''}</ThemedText>
             <Chip mode="flat" compact>{tLabel}</Chip>
           </View>
 
           <ThemedText style={styles.title}>{title}</ThemedText>
-
           <Divider style={styles.divider} />
 
           <View style={styles.sectionRow}>
             <ThemedText style={styles.sectionLabel}>Personnes</ThemedText>
             <View style={styles.wrapRow}>
-              {(item as any).character && (item as any).character.trim().length > 0
+              {(item as any).character?.trim()
                 ? <Chip compact style={styles.chip}>{(item as any).character.trim()}</Chip>
                 : <ThemedText style={styles.placeholder}>Aucune</ThemedText>}
             </View>
@@ -223,7 +208,7 @@ export default function DreamList() {
           <View style={styles.sectionRow}>
             <ThemedText style={styles.sectionLabel}>Tags</ThemedText>
             <View style={styles.wrapRow}>
-              {(item.tags || []).length > 0
+              {(item.tags || []).length
                 ? item.tags!.map((t) => <Chip key={t} compact style={styles.chip}>#{t}</Chip>)
                 : <ThemedText style={styles.placeholder}>Aucun</ThemedText>}
             </View>
@@ -233,24 +218,28 @@ export default function DreamList() {
     );
   };
 
+  /* ── Mémo du RefreshControl pour lisibilité ── */
+  const refresher = useMemo(
+    () => <RefreshControl refreshing={loading} onRefresh={load} />,
+    [loading, load]
+  );
+
+  /* ── UI globale + modale d’édition ── */
   return (
     <>
+      {/* Liste des rêves */}
       <FlatList
         data={data}
         keyExtractor={(_, i) => String(i)}
         renderItem={renderItem}
         contentContainerStyle={styles.list}
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <ThemedText>Aucun rêve enregistré</ThemedText>
-          </View>
-        }
+        refreshControl={refresher}
+        ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve enregistré</ThemedText></View>}
       />
 
-      {/* Modal éditeur complet */}
+      {/* Modale éditeur */}
       <Portal>
-        <Modal visible={editorVisible} onDismiss={closeEditor} contentContainerStyle={styles.modalContainer}>
+        <Modal visible={visible} onDismiss={closeEditor} contentContainerStyle={styles.modalContainer}>
           <KeyboardAwareScrollView
             enableOnAndroid
             extraScrollHeight={24}
@@ -269,8 +258,8 @@ export default function DreamList() {
                 value={dateDisplay}
                 mode="flat"
                 editable={false}
-                onPressIn={() => setShowDatePicker(true)}
-                right={<TextInput.Icon icon="calendar" onPress={() => setShowDatePicker(true)} />}
+                onPressIn={() => setShowDate(true)}
+                right={<TextInput.Icon icon="calendar" onPress={() => setShowDate(true)} />}
                 style={[styles.half, { marginRight: 8 }]}
               />
               <TextInput
@@ -278,12 +267,12 @@ export default function DreamList() {
                 value={timeDisplay}
                 mode="flat"
                 editable={false}
-                onPressIn={() => setShowTimePicker(true)}
-                right={<TextInput.Icon icon="clock-outline" onPress={() => setShowTimePicker(true)} />}
+                onPressIn={() => setShowTime(true)}
+                right={<TextInput.Icon icon="clock-outline" onPress={() => setShowTime(true)} />}
                 style={styles.half}
               />
             </View>
-            {showDatePicker && (
+            {showDate && (
               <DateTimePicker
                 value={dateObj}
                 mode="date"
@@ -292,7 +281,7 @@ export default function DreamList() {
                 locale="fr-FR"
               />
             )}
-            {showTimePicker && (
+            {showTime && (
               <DateTimePicker
                 value={dateObj}
                 mode="time"
@@ -303,17 +292,15 @@ export default function DreamList() {
               />
             )}
 
-            {/* Titre */}
-            <TextInput label="Titre" value={edTitle} onChangeText={setEdTitle} mode="flat" style={styles.mb12} />
-
-            {/* Personnes / Lieu */}
-            <TextInput label="Personnes" value={edCharacter} onChangeText={setEdCharacter} mode="flat" style={styles.mb12} />
-            <TextInput label="Lieu" value={edLocation} onChangeText={setEdLocation} mode="flat" style={styles.mb12} />
+            {/* Champs principaux */}
+            <TextInput label="Titre" value={ed.title} onChangeText={setF('title')} mode="flat" style={styles.mb12} />
+            <TextInput label="Personnes" value={ed.character} onChangeText={setF('character')} mode="flat" style={styles.mb12} />
+            <TextInput label="Lieu" value={ed.location} onChangeText={setF('location')} mode="flat" style={styles.mb12} />
 
             {/* Type de rêve */}
             <SegmentedButtons
-              value={edType}
-              onValueChange={(v) => setEdType(v as 'lucid' | 'nightmare' | 'pleasant' | undefined)}
+              value={ed.type}
+              onValueChange={(v) => setF('type')(v as DreamType)}
               buttons={[
                 { value: 'lucid', label: 'Rêve lucide' },
                 { value: 'nightmare', label: 'Cauchemar' },
@@ -322,15 +309,15 @@ export default function DreamList() {
               style={styles.mb12}
             />
 
-            {/* Intensité / Qualité */}
+            {/* Sliders Intensité / Qualité */}
             <View style={styles.row}>
               <View style={[styles.sliderHalf, { marginRight: 8 }]}>
-                <ThemedText style={styles.sliderLabel}>Intensity: {edIntensity}</ThemedText>
-                <Slider value={edIntensity} minimumValue={0} maximumValue={10} step={1} onValueChange={setEdIntensity} />
+                <ThemedText style={styles.sliderLabel}>Intensity: {ed.intensity}</ThemedText>
+                <Slider value={ed.intensity} minimumValue={0} maximumValue={10} step={1} onValueChange={setF('intensity')} />
               </View>
               <View style={styles.sliderHalf}>
-                <ThemedText style={styles.sliderLabel}>Quality: {edQuality}</ThemedText>
-                <Slider value={edQuality} minimumValue={0} maximumValue={10} step={1} onValueChange={setEdQuality} />
+                <ThemedText style={styles.sliderLabel}>Quality: {ed.quality}</ThemedText>
+                <Slider value={ed.quality} minimumValue={0} maximumValue={10} step={1} onValueChange={setF('quality')} />
               </View>
             </View>
 
@@ -338,16 +325,16 @@ export default function DreamList() {
             <View style={{ alignSelf: 'flex-start', marginBottom: 12 }}>
               <Checkbox.Item
                 label="Ajouter aux favoris"
-                status={edIsFav ? 'checked' : 'unchecked'}
-                onPress={() => setEdIsFav((v) => !v)}
+                status={ed.favorite ? 'checked' : 'unchecked'}
+                onPress={() => setF('favorite')(!ed.favorite)}
               />
             </View>
 
             {/* Description */}
             <TextInput
               label="Description du rêve"
-              value={edText}
-              onChangeText={setEdText}
+              value={ed.text}
+              onChangeText={setF('text')}
               mode="flat"
               multiline
               numberOfLines={6}
@@ -357,10 +344,8 @@ export default function DreamList() {
             {/* Tags */}
             <ThemedText style={styles.sectionLabel}>Tags (3 max)</ThemedText>
             <View style={[styles.wrapRow, styles.mb8]}>
-              {edTags.map((t) => (
-                <Chip key={t} onClose={() => removeTag(t)} compact style={styles.chip}>
-                  #{t}
-                </Chip>
+              {ed.tags.map((t) => (
+                <Chip key={t} onClose={() => removeTag(t)} compact style={styles.chip}>#{t}</Chip>
               ))}
             </View>
             <TextInput
@@ -368,22 +353,16 @@ export default function DreamList() {
               value={tagInput}
               onChangeText={setTagInput}
               mode="flat"
-              right={
-                <TextInput.Icon icon="plus" onPress={addTag} disabled={edTags.length >= 3 || !sanitizeTag(tagInput)} />
-              }
+              right={<TextInput.Icon icon="plus" onPress={addTag} disabled={ed.tags.length >= 3 || !sanitizeTag(tagInput)} />}
               onSubmitEditing={addTag}
-              disabled={edTags.length >= 3}
+              disabled={ed.tags.length >= 3}
               style={styles.mb16}
             />
 
             {/* Actions */}
             <View style={styles.rowBetween}>
-              <Button mode="contained" onPress={saveEdits}>
-                Enregistrer
-              </Button>
-              <Button mode="contained" onPress={deleteDream} style={styles.deleteBtn} textColor="#fff">
-                Supprimer le rêve
-              </Button>
+              <Button mode="contained" onPress={saveEdits}>Enregistrer</Button>
+              <Button mode="contained" onPress={deleteDream} style={styles.deleteBtn} textColor="#fff">Supprimer le rêve</Button>
             </View>
           </KeyboardAwareScrollView>
         </Modal>
@@ -392,35 +371,101 @@ export default function DreamList() {
   );
 }
 
+/* ──────────────────────── Styles ──────────────────────── */
 const styles = StyleSheet.create({
-  list: { padding: 16, paddingBottom: 32 },
-  card: { marginBottom: 12, borderRadius: 12 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  dateText: { fontSize: 12, opacity: 0.8 },
-  title: { fontSize: 16, fontWeight: '600', marginTop: 6 },
-  divider: { marginVertical: 10, opacity: 0.5 },
-  sectionRow: { marginTop: 6 },
-  sectionLabel: { fontSize: 12, opacity: 0.7, marginBottom: 4 },
-  wrapRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { marginRight: 6, marginBottom: 6 },
-  placeholder: { fontSize: 12, opacity: 0.6 },
-  descText: { fontSize: 13, lineHeight: 18, opacity: 0.9 },
-  empty: { padding: 24, alignItems: 'center' },
-
-  // Modal / Éditeur
-  modalContainer: {
-    margin: 12,
-    borderRadius: 12,
-    padding: 16,
-    backgroundColor: 'rgba(255,255,255,1)',
+  /* --- Liste des rêves --- */
+  list: { 
+    padding: 16,              // marge interne autour de la liste
+    paddingBottom: 32,        // espace supplémentaire en bas pour le scroll
   },
-  modalTitle: { fontSize: 18, fontWeight: '600', marginBottom: 12 },
-  mb8: { marginBottom: 8 },
+  card: {
+  marginBottom: 12,
+  borderRadius: 12,
+  width: '90%',          // ← Réduit la largeur (ex : 90% de l’écran)
+  alignSelf: 'center',   // ← Centre la carte horizontalement
+  },  
+
+  row: { 
+    flexDirection: 'row',     // aligne les éléments horizontalement
+    justifyContent: 'space-between', // espace maximal entre les éléments
+    alignItems: 'center',     // alignement vertical centré
+    marginBottom: 18,         // espace entre les lignes
+  },
+  dateText: { 
+    fontSize: 12,             // petite taille pour la date
+    opacity: 0.8,             // légère transparence pour un aspect discret
+  },
+  title: { 
+    fontSize: 16, 
+    fontWeight: '600',        // semi-gras pour hiérarchiser le titre
+    marginTop: 6,             // espace au-dessus du titre
+  },
+  divider: { 
+    marginVertical: 10,       // espace autour du séparateur
+    opacity: 0.5,             // ligne atténuée
+  },
+  sectionRow: { 
+    marginTop: 6,             // espace entre les blocs internes (personnes, tags…)
+  },
+  sectionLabel: { 
+    fontSize: 12, 
+    opacity: 0.7,             // aspect secondaire du label
+    marginBottom: 4,          // espace sous le titre de section
+  },
+  wrapRow: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap',         // permet aux éléments (chips) de passer à la ligne
+    gap: 8,                   // espace uniforme entre les chips
+  },
+  chip: { 
+    marginRight: 6, 
+    marginBottom: 6,          // petit espacement autour de chaque chip
+  },
+  placeholder: { 
+    fontSize: 12, 
+    opacity: 0.6,             // texte grisé pour l’absence de données
+  },
+  descText: { 
+    fontSize: 13, 
+    lineHeight: 18,           // espacement entre les lignes du texte
+    opacity: 0.9,             // lisibilité sans contraste excessif
+  },
+  empty: { 
+    padding: 24, 
+    alignItems: 'center',     // centre le texte “Aucun rêve enregistré”
+  },
+
+  /* --- Modale / Éditeur --- */
+  modalContainer: { 
+    margin: 12, 
+    borderRadius: 12, 
+    padding: 16, 
+    backgroundColor: 'rgba(255,255,255,1)', // fond blanc pour la lisibilité
+  },
+  modalTitle: { 
+    fontSize: 18, 
+    fontWeight: '600', 
+    marginBottom: 12,         // espace sous le titre de la modale
+  },
+  mb8: { marginBottom: 8 },   // utilitaires de marge verticale
   mb12: { marginBottom: 12 },
   mb16: { marginBottom: 16 },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  deleteBtn: { backgroundColor: '#d32f2f' },
-  half: { flex: 1 },
-  sliderHalf: { flex: 1 },
-  sliderLabel: { marginBottom: 4, fontSize: 12 },
+  rowBetween: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', // boutons opposés (ex: Enregistrer / Supprimer)
+    alignItems: 'center',
+  },
+  deleteBtn: { 
+    backgroundColor: '#d32f2f', // rouge pour indiquer la suppression
+  },
+  half: { 
+    flex: 1,                  // permet de diviser l’espace en deux colonnes égales
+  },
+  sliderHalf: { 
+    flex: 1,                  // même chose pour les sliders
+  },
+  sliderLabel: { 
+    marginBottom: 4, 
+    fontSize: 12,             // petite légende pour les barres de valeur
+  },
 });
