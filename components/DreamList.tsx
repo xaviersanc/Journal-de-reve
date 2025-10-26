@@ -391,7 +391,7 @@ export default function DreamList({ data: dataProp, ListHeaderComponent }: Dream
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
         refreshControl={refresher}
-        ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve trouvé</ThemedText></View>}
+  ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve</ThemedText></View>}
         ListHeaderComponent={ListHeaderComponent}
       />
 
