@@ -7,6 +7,7 @@ import { useEffect } from 'react';
 import 'react-native-reanimated';
 
 
+import { SearchProvider } from '@/components/SearchContext';
 import { useColorScheme } from '@/components/useColorScheme';
 import { PaperProvider } from 'react-native-paper';
 
@@ -44,7 +45,11 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return (
+    <SearchProvider>
+      <RootLayoutNav />
+    </SearchProvider>
+  );
 }
 
 function RootLayoutNav() {

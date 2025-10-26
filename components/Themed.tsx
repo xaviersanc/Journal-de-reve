@@ -16,6 +16,13 @@ type ThemeProps = {
 export type TextProps = ThemeProps & DefaultText['props'];
 export type ViewProps = ThemeProps & DefaultView['props'];
 
+
+/**
+ * Récupère la couleur du thème courant (clair/sombre) pour un usage dans les composants.
+ * @param props Objet contenant éventuellement une couleur claire et/ou sombre à surcharger
+ * @param colorName Nom de la couleur à utiliser dans la palette (ex: 'text', 'background')
+ * @returns La couleur à utiliser (string), soit celle passée en props, soit celle du thème.
+ */
 export function useThemeColor(
   props: { light?: string; dark?: string },
   colorName: keyof typeof Colors.light & keyof typeof Colors.dark
@@ -30,6 +37,12 @@ export function useThemeColor(
   }
 }
 
+
+/**
+ * Composant texte thémé (couleur auto selon le mode clair/sombre).
+ * @param props Propriétés du texte, dont couleurs optionnelles
+ * @returns Élément JSX <Text> avec la bonne couleur appliquée.
+ */
 export function Text(props: TextProps) {
   const { style, lightColor, darkColor, ...otherProps } = props;
   const color = useThemeColor({ light: lightColor, dark: darkColor }, 'text');
@@ -37,6 +50,12 @@ export function Text(props: TextProps) {
   return <DefaultText style={[{ color }, style]} {...otherProps} />;
 }
 
+
+/**
+ * Composant vue thémée (fond auto selon le mode clair/sombre).
+ * @param props Propriétés de la vue, dont couleurs optionnelles
+ * @returns Élément JSX <View> avec la bonne couleur de fond appliquée.
+ */
 export function View(props: ViewProps) {
   const { style, lightColor, darkColor, ...otherProps } = props;
   const backgroundColor = useThemeColor({ light: lightColor, dark: darkColor }, 'background');

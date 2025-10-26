@@ -1,3 +1,4 @@
+import * as Clipboard from 'expo-clipboard';
 // components/DreamList.tsx
 // Liste + éditeur de rêves (version compacte, commentée par blocs)
 
@@ -7,8 +8,9 @@ import { DreamData } from '@/interfaces/DreamData';
 import { AsyncStorageService } from '@/services/AsyncStorageService';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Slider from '@react-native-community/slider';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { FlatList, Platform, RefreshControl, StyleSheet, View } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, FlatList, Platform, RefreshControl, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import {
   Button,
@@ -16,6 +18,7 @@ import {
   Checkbox,
   Chip,
   Divider,
+  IconButton,
   Modal,
   Portal,
   SegmentedButtons,
@@ -23,6 +26,11 @@ import {
 } from 'react-native-paper';
 
 /* ──────────────────────── Helpers format ──────────────────────── */
+/**
+ * Formate une date ISO en objets date et heure lisibles.
+ * @param iso Chaîne ISO de la date (ex: '2025-10-26T14:30:00.000Z')
+ * @returns Un objet { date: '26/10/2025', time: '14:30' } ou { date: '', time: '' } si iso absent.
+ */
 const fmtDate = (iso?: string) => {
   if (!iso) return { date: '', time: '' };
   const d = new Date(iso);
@@ -31,27 +39,74 @@ const fmtDate = (iso?: string) => {
     time: new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d),
   };
 };
+/**
+ * Formate une date en chaîne 'jj/mm/aaaa'.
+ * @param d Date à formater
+ * @returns La date formatée sous forme de chaîne, par exemple '26/10/2025'.
+ */
 const formatDate = (d: Date) => new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+/**
+ * Formate une date en heure/minute (format 24h).
+ * @param d Date à formater
+ * @returns L'heure formatée sous forme de chaîne, par exemple '14:30'.
+ */
 const formatTime = (d: Date) => new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
+/**
+ * Retourne le label lisible du type de rêve.
+ * @param t Type de rêve ('lucid', 'nightmare', 'pleasant')
+ * @param isLucid Booléen pour forcer le type lucide
+ * @returns Chaîne lisible pour l'utilisateur (ex: 'Rêve lucide').
+ */
 const typeLabel = (t?: DreamData['dreamType'], isLucid?: boolean) =>
   t === 'lucid' || isLucid ? 'Rêve lucide' : t === 'nightmare' ? 'Cauchemar' : t === 'pleasant' ? 'Rêve agréable' : '—';
+/**
+ * Déduit un titre à partir du titre ou du texte du rêve.
+ * @param title Titre explicite (optionnel)
+ * @param text Texte du rêve (optionnel)
+ * @returns Titre à afficher (max 80 caractères, ou 'Sans titre').
+ */
 const deriveTitle = (title?: string, text?: string) => {
   if (title?.trim()) return title.trim();
   const raw = (text || '').trim().split('\n')[0];
   return raw ? (raw.length > 80 ? raw.slice(0, 80) + '…' : raw) : 'Sans titre';
 };
+/**
+ * Nettoie un tag utilisateur (supprime #, espaces, met en minuscule).
+ * @param raw Tag brut saisi
+ * @returns Le tag nettoyé, prêt à être stocké ou affiché (ex: 'mon-tag').
+ */
 const sanitizeTag = (raw: string) => raw.trim().replace(/^#+/, '').replace(/\s+/g, '-').toLowerCase();
 
 /* ──────────────────────── Composant principal ──────────────────────── */
-export default function DreamList() {
+/**
+ * Composant principal d'affichage et d'édition de la liste des rêves.
+ * Ne prend pas de paramètres.
+ * @returns Un composant React (JSX.Element) affichant la liste et l'éditeur de rêves.
+ */
+import { useSearch } from './SearchContext';
+
+import React from 'react';
+type DreamListProps = {
+  data?: DreamData[];
+  ListHeaderComponent?: React.ComponentType | React.ReactElement | null;
+};
+
+export default function DreamList({ data: dataProp, ListHeaderComponent }: DreamListProps) {
+  const { width } = useWindowDimensions();
+  const columns = width >= 1200 ? 3 : width >= 768 ? 2 : 1;
+  const { criteria } = useSearch();
   /* ── Données liste ── */
   const [data, setData] = useState<DreamData[]>([]);
   const [loading, setLoading] = useState(false);
 
+  /**
+   * Charge les rêves depuis le stockage et met à jour l'état local.
+   * @returns Promise<void> - Met à jour l'état data et loading.
+   */
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const arr = await AsyncStorageService.getData<DreamData[]>(AsyncStorageConfig.keys.dreamsArrayKey);
+  const arr = await AsyncStorageService.getData(AsyncStorageConfig.keys.dreamsArrayKey);
       setData(Array.isArray(arr) ? [...arr].reverse() : []);
     } finally {
       setLoading(false);
@@ -59,6 +114,49 @@ export default function DreamList() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  // Recharge les données à chaque fois que l’onglet écran reprend le focus
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load])
+  );
+
+  // Filtrage selon les critères de recherche
+  const filteredData = useMemo(() => {
+    if (dataProp) return dataProp;
+    if (!criteria) return data;
+    return data.filter((dream) => {
+      // Recherche simple : mot-clé dans la description
+      if (criteria.search && !(dream.dreamText || '').toLowerCase().includes(criteria.search.toLowerCase())) {
+        return false;
+      }
+      // Type
+      if (criteria.type && dream.dreamType !== criteria.type) {
+        return false;
+      }
+      // Personnage : cherche une correspondance dans toute la string (pas de séparation)
+      if (criteria.character && !((dream as any).character || '').toLowerCase().includes(criteria.character.toLowerCase())) {
+        return false;
+      }
+      // Période
+      if (criteria.periodStart) {
+        const d = dream.dateISO ? new Date(dream.dateISO) : undefined;
+        if (!d || d < new Date(criteria.periodStart)) return false;
+      }
+      if (criteria.periodEnd) {
+        const d = dream.dateISO ? new Date(dream.dateISO) : undefined;
+        if (!d || d > new Date(criteria.periodEnd)) return false;
+      }
+      // Tag
+      if (criteria.tag) {
+        const tagNorm = criteria.tag.replace(/^#+/, '').toLowerCase();
+        if (!dream.tags || !dream.tags.some(t => t.toLowerCase().includes(tagNorm))) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [data, criteria, dataProp]);
 
   /* ── État éditeur (groupé pour compacité) ── */
   type DreamType = 'lucid' | 'nightmare' | 'pleasant' | undefined;
@@ -75,6 +173,11 @@ export default function DreamList() {
     quality: 5,
     tags: [] as string[],
   });
+  /**
+   * Génère un setter pour un champ de l'état d'édition.
+   * @param k Clé du champ à modifier
+   * @returns Fonction qui met à jour la clé k dans l'état ed.
+   */
   const setF = <K extends keyof typeof ed>(k: K) => (v: (typeof ed)[K]) => setEd(s => ({ ...s, [k]: v }));
 
   /* ── Date / heure de l’éditeur ── */
@@ -85,6 +188,12 @@ export default function DreamList() {
   const timeDisplay = formatTime(dateObj);
 
   /* ── Ouvrir/fermer l’éditeur ── */
+  /**
+   * Ouvre l'éditeur pour un rêve donné.
+   * @param item Rêve à éditer
+   * @param indexInUI Index du rêve dans la liste UI
+   * @returns Rien (void). Met à jour l'état d'édition et affiche la modale.
+   */
   const openEditor = (item: DreamData, indexInUI: number) => {
     setUiIndex(indexInUI);
     setEd({
@@ -101,24 +210,49 @@ export default function DreamList() {
     setDateObj(item.dateISO ? new Date(item.dateISO) : new Date());
     setVisible(true);
   };
+  /**
+   * Ferme l'éditeur de rêve.
+   * @returns Rien (void). Cache la modale et réinitialise l'index UI.
+   */
   const closeEditor = () => { setVisible(false); setUiIndex(null); };
 
   /* ── Tags (ajout/suppression) ── */
   const [tagInput, setTagInput] = useState('');
+  /**
+   * Ajoute un tag à la liste des tags de l'éditeur si valide (max 3, pas de doublon).
+   * @returns Rien (void). Met à jour l'état ed.tags.
+   */
   const addTag = () => {
     if (ed.tags.length >= 3) return;
     const t = sanitizeTag(tagInput);
     if (!t || ed.tags.includes(t)) return;
     setEd(s => ({ ...s, tags: [...s.tags, t] })); setTagInput('');
   };
+  /**
+   * Retire un tag de la liste des tags de l'éditeur.
+   * @param t Tag à retirer
+   * @returns Rien (void). Met à jour l'état ed.tags.
+   */
   const removeTag = (t: string) => setEd(s => ({ ...s, tags: s.tags.filter(x => x !== t) }));
 
   /* ── Date/Time pickers ── */
+  /**
+   * Met à jour la date sélectionnée dans le picker de l'éditeur.
+   * @param _ Événement (non utilisé)
+   * @param selected Date sélectionnée
+   * @returns Rien (void). Met à jour l'état local de la date si une date est choisie.
+   */
   const onChangeDate = (_: DateTimePickerEvent, selected?: Date) => {
     setShowDate(false); if (!selected) return;
     const merged = new Date(dateObj); merged.setFullYear(selected.getFullYear(), selected.getMonth(), selected.getDate());
     setDateObj(merged);
   };
+  /**
+   * Met à jour l'heure sélectionnée dans le picker de l'éditeur.
+   * @param _ Événement (non utilisé)
+   * @param selected Heure sélectionnée
+   * @returns Rien (void). Met à jour l'état local de l'heure si une heure est choisie.
+   */
   const onChangeTime = (_: DateTimePickerEvent, selected?: Date) => {
     setShowTime(false); if (!selected) return;
     const merged = new Date(dateObj); merged.setHours(selected.getHours(), selected.getMinutes(), 0, 0);
@@ -126,17 +260,26 @@ export default function DreamList() {
   };
 
   /* ── Récupérer l’index stockage (liste inversée) ── */
+  /**
+   * Calcule l'index réel dans le stockage à partir de l'index UI (liste inversée).
+   * @param indexInUI Index dans la liste affichée
+   * @returns Index dans le tableau de stockage (number)
+   */
   const getStorageIndex = async (indexInUI: number) => {
-    const arr = await AsyncStorageService.getData<DreamData[]>(AsyncStorageConfig.keys.dreamsArrayKey);
+  const arr = await AsyncStorageService.getData(AsyncStorageConfig.keys.dreamsArrayKey);
     const len = Array.isArray(arr) ? arr.length : 0;
     return len - 1 - indexInUI;
   };
 
   /* ── Enregistrer / Supprimer ── */
+  /**
+   * Enregistre les modifications du rêve édité dans le stockage.
+   * @returns Promise<void> - Met à jour le stockage, recharge la liste et ferme l'éditeur.
+   */
   const saveEdits = async () => {
     if (uiIndex === null) return;
     const storageIdx = await getStorageIndex(uiIndex);
-    const arr = (await AsyncStorageService.getData<DreamData[]>(AsyncStorageConfig.keys.dreamsArrayKey)) || [];
+  const arr = (await AsyncStorageService.getData(AsyncStorageConfig.keys.dreamsArrayKey)) || [];
     if (storageIdx < 0 || storageIdx >= arr.length) return;
 
     const prev = arr[storageIdx];
@@ -162,10 +305,14 @@ export default function DreamList() {
     await load(); closeEditor();
   };
 
+  /**
+   * Supprime le rêve édité du stockage.
+   * @returns Promise<void> - Met à jour le stockage, recharge la liste et ferme l'éditeur.
+   */
   const deleteDream = async () => {
     if (uiIndex === null) return;
     const storageIdx = await getStorageIndex(uiIndex);
-    const arr = (await AsyncStorageService.getData<DreamData[]>(AsyncStorageConfig.keys.dreamsArrayKey)) || [];
+  const arr = (await AsyncStorageService.getData(AsyncStorageConfig.keys.dreamsArrayKey)) || [];
     if (storageIdx < 0 || storageIdx >= arr.length) return;
     arr.splice(storageIdx, 1);
     await AsyncStorageService.setData(AsyncStorageConfig.keys.dreamsArrayKey, arr);
@@ -173,6 +320,11 @@ export default function DreamList() {
   };
 
   /* ── Rendu d’un item (carte) ── */
+  /**
+   * Rendu d'un item (carte de rêve) dans la liste.
+   * @param param0 Objet contenant le rêve et son index
+   * @returns Élément JSX représentant la carte du rêve.
+   */
   const renderItem = ({ item, index }: { item: DreamData; index: number }) => {
     const { date, time } = item.dateDisplay && item.timeDisplay ? { date: item.dateDisplay, time: item.timeDisplay } : fmtDate(item.dateISO);
     const tLabel = typeLabel(item.dreamType, item.isLucidDream);
@@ -213,12 +365,59 @@ export default function DreamList() {
                 : <ThemedText style={styles.placeholder}>Aucun</ThemedText>}
             </View>
           </View>
+          {/* Bouton d'exportation */}
+          <View style={{ alignItems: 'flex-end', marginTop: 8 }}>
+            <IconButton
+              icon="share-variant"
+              size={24}
+              onPress={() => handleExportDream(item)}
+              accessibilityLabel="Partager le rêve"
+              style={{ margin: 0 }}
+            />
+          </View>
         </Card.Content>
       </Card>
     );
   };
 
+
+async function handleExportDream(dream: DreamData) {
+  try {
+    // Format du texte à exporter (évite les caractères spéciaux problématiques)
+    const content =
+      '━━━━━━━━━━━━━━━━━━━━━━\n' +
+      '🌙 REVE EXPORTE\n' +
+      '━━━━━━━━━━━━━━━━━━━━━━\n' +
+      `\n` +
+      `🌙 Titre         : ${dream.title?.trim() || 'Sans titre'}\n` +
+      `📝 Texte         : ${(dream.dreamText?.trim() || '—')}\n` +
+      `📖 Description   : ${(dream as any).dreamDescription?.trim() || '—'}\n` +
+      `📍 Lieu          : ${(dream as any).location?.trim() || '—'}\n` +
+      `👤 Personnage    : ${(dream as any).character?.trim() || '—'}\n` +
+      `🔮 Signification : ${(dream as any).signification?.trim() || '—'}\n` +
+      `⭐ Favori        : ${((dream as any).favorite ? 'Oui' : 'Non')}\n` +
+      `💥 Intensité     : ${(dream as any).intensity ?? '—'}\n` +
+      `🎚️ Qualité      : ${(dream as any).qualityDream ?? '—'}\n` +
+      `📝 Type          : ${dream.dreamType ? typeLabel(dream.dreamType, dream.isLucidDream) : '—'}${dream.isLucidDream ? ' (lucide)' : ''}\n` +
+      `🎭 Tonalité      : ${(dream as any).dreamQuality || '—'}\n` +
+      `📅 Date          : ${dream.dateDisplay || dream.dateISO || '—'}\n` +
+      `🕒 Heure         : ${dream.timeDisplay || '—'}\n` +
+      `🏷️ Tags         : ${(dream.tags && dream.tags.length) ? dream.tags.map(t => '#' + t).join(' ') : '—'}\n` +
+      '\n━━━━━━━━━━━━━━━━━━━━━━\n';
+    // Copier dans le presse-papiers
+    await Clipboard.setStringAsync(content);
+    // Nouvelle API expo-file-system : File (sans encodage explicite)
+    Alert.alert('Exporté', 'Le rêve a été copié dans le presse-papiers.');
+  } catch (e) {
+    Alert.alert('Erreur', "Impossible d'exporter le rêve : " + (e as Error).message);
+  }
+}
+
   /* ── Mémo du RefreshControl pour lisibilité ── */
+  /**
+   * Mémorise le composant RefreshControl pour la liste.
+   * @returns Élément JSX RefreshControl lié à l'état loading et à la fonction load.
+   */
   const refresher = useMemo(
     () => <RefreshControl refreshing={loading} onRefresh={load} />,
     [loading, load]
@@ -229,12 +428,17 @@ export default function DreamList() {
     <>
       {/* Liste des rêves */}
       <FlatList
-        data={data}
+        data={filteredData}
         keyExtractor={(_, i) => String(i)}
         renderItem={renderItem}
+        numColumns={columns}
+        columnWrapperStyle={columns > 1 ? styles.gridRow : undefined}
         contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
         refreshControl={refresher}
-        ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve enregistré</ThemedText></View>}
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={<View style={styles.empty}><ThemedText>Aucun rêve</ThemedText></View>}
+        ListHeaderComponent={ListHeaderComponent}
       />
 
       {/* Modale éditeur */}
@@ -248,6 +452,7 @@ export default function DreamList() {
             contentContainerStyle={{ paddingBottom: 16 }}
             keyboardShouldPersistTaps="handled"
             enableAutomaticScroll
+            showsVerticalScrollIndicator={false}
           >
             <ThemedText style={styles.modalTitle}>Éditer le rêve</ThemedText>
 
@@ -299,7 +504,7 @@ export default function DreamList() {
 
             {/* Type de rêve */}
             <SegmentedButtons
-              value={ed.type}
+              value={ed.type ?? ''}
               onValueChange={(v) => setF('type')(v as DreamType)}
               buttons={[
                 { value: 'lucid', label: 'Rêve lucide' },
@@ -381,9 +586,12 @@ const styles = StyleSheet.create({
   card: {
   marginBottom: 12,
   borderRadius: 12,
-  width: '90%',          // ← Réduit la largeur (ex : 90% de l’écran)
-  alignSelf: 'center',   // ← Centre la carte horizontalement
+  flex: 1,               // s'étire pour remplir la colonne
+  marginHorizontal: 6,   // gouttière entre colonnes
   },  
+  gridRow: {
+    justifyContent: 'space-between', // espace horizontal pour la grille
+  },
 
   row: { 
     flexDirection: 'row',     // aligne les éléments horizontalement
@@ -441,6 +649,9 @@ const styles = StyleSheet.create({
     borderRadius: 12, 
     padding: 16, 
     backgroundColor: 'rgba(255,255,255,1)', // fond blanc pour la lisibilité
+    alignSelf: 'center',
+    width: '95%',
+    maxWidth: 700,
   },
   modalTitle: { 
     fontSize: 18, 
