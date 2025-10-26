@@ -1,8 +1,8 @@
-// NOTE: The default React Native styling doesn't support server rendering.
-// Server rendered styles should not change between the first render of the HTML
-// and the first render on the client. Typically, web developers will use CSS media queries
-// to render different styles on the client and server, these aren't directly supported in React Native
-// but can be achieved using a styling library like Nativewind.
+/**
+ * Hook web-only : retourne toujours 'light' (pas de détection du thème système sur le web).
+ * Ne prend pas de paramètres.
+ * @returns La chaîne 'light' (mode clair forcé sur le web).
+ */
 export function useColorScheme() {
   return 'light';
 }

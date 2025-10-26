@@ -1,12 +1,15 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true,
+    "jsx": "react-native",
+    "target": "es2017",
+    "downlevelIteration": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
     "paths": {
-      "@/*": [
-        "./*"
-      ]
-    }
+      "@/*": ["./*"]
+    },
+    "strict": true
   },
   "include": [
     "**/*.ts",

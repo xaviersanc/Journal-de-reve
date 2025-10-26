@@ -6,26 +6,45 @@ import { AsyncStorageService } from '@/services/AsyncStorageService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import Slider from '@react-native-community/slider';
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
-  Dimensions,
   Keyboard,
   Platform,
   StyleSheet,
   TouchableWithoutFeedback,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { Button, Checkbox, Chip, SegmentedButtons, TextInput } from 'react-native-paper';
 
-const { width } = Dimensions.get('window');
+// Responsive largeur de contenu
+// Calculé à l'exécution pour s'adapter aux changements d'orientation
 
+/**
+ * Formate une date en chaîne 'jj/mm/aaaa'.
+ * @param d Date à formater
+ * @returns La date formatée sous forme de chaîne, par exemple '26/10/2025'.
+ */
 const formatDate = (d: Date) =>
   new Intl.DateTimeFormat('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(d);
+/**
+ * Formate une date en heure/minute (format 24h).
+ * @param d Date à formater
+ * @returns L'heure formatée sous forme de chaîne, par exemple '14:30'.
+ */
 const formatTime = (d: Date) =>
   new Intl.DateTimeFormat('fr-FR', { hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
 
+/**
+ * Formulaire principal de saisie d'un rêve.
+ * Ne prend pas de paramètres.
+ * Affiche le formulaire, gère la saisie et la sauvegarde dans le stockage local.
+ * @returns Un composant React (JSX.Element) représentant le formulaire complet de saisie de rêve, prêt à être affiché dans l'application.
+ */
 export default function DreamForm() {
+  const { width } = useWindowDimensions();
+  const contentWidth = Math.min(700, width * 0.9);
   const [dreamText, setDreamText] = useState<string>('');
   const [dreamDescription, setDreamDescription] = useState<string>('');
   const [location, setLocation] = useState<string>('');
@@ -48,6 +67,11 @@ export default function DreamForm() {
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState<string>('');
 
+  /**
+   * Nettoie un tag utilisateur (supprime #, espaces, met en minuscule).
+   * @param raw Tag brut saisi
+   * @returns Le tag nettoyé, prêt à être stocké ou affiché (ex: 'mon-tag').
+   */
   const sanitizeTag = (raw: string) =>
     raw
       .trim()
@@ -55,6 +79,11 @@ export default function DreamForm() {
       .replace(/\s+/g, '-')         // espaces -> tirets
       .toLowerCase();
 
+  /**
+   * Ajoute le tag courant à la liste si valide (max 3, pas de doublon).
+   * Ne prend pas de paramètres, modifie l'état local.
+   * @returns Rien (void). Met à jour l'état local des tags si le tag est valide.
+   */
   const addTag = () => {
     if (tags.length >= 3) return;
     const t = sanitizeTag(tagInput);
@@ -64,8 +93,19 @@ export default function DreamForm() {
     setTagInput('');
   };
 
+  /**
+   * Retire un tag de la liste.
+   * @param t Tag à retirer
+   * @returns Rien (void). Met à jour l'état local des tags en supprimant le tag donné.
+   */
   const removeTag = (t: string) => setTags((prev) => prev.filter((x) => x !== t));
 
+  /**
+   * Met à jour la date sélectionnée dans le picker.
+   * @param _ Événement (non utilisé)
+   * @param selected Date sélectionnée
+   * @returns Rien (void). Met à jour l'état local de la date si une date est choisie.
+   */
   const onChangeDate = (_: DateTimePickerEvent, selected?: Date) => {
     setShowDatePicker(false);
     if (!selected) return;
@@ -74,6 +114,12 @@ export default function DreamForm() {
     setDateObj(merged);
   };
 
+  /**
+   * Met à jour l'heure sélectionnée dans le picker.
+   * @param _ Événement (non utilisé)
+   * @param selected Heure sélectionnée
+   * @returns Rien (void). Met à jour l'état local de l'heure si une heure est choisie.
+   */
   const onChangeTime = (_: DateTimePickerEvent, selected?: Date) => {
     setShowTimePicker(false);
     if (!selected) return;
@@ -82,6 +128,11 @@ export default function DreamForm() {
     setDateObj(merged);
   };
 
+  /**
+   * Sauvegarde le rêve dans le stockage local et réinitialise le formulaire.
+   * Ne prend pas de paramètres.
+   * @returns Une promesse qui se résout quand la sauvegarde et la réinitialisation du formulaire sont terminées (Promise<void>).
+   */
   const handleDreamSubmission = async (): Promise<void> => {
     try {
       const formDataArray: DreamData[] =
@@ -110,6 +161,8 @@ export default function DreamForm() {
       console.error('Erreur lors de la sauvegarde des données:', error);
     }
 
+    Keyboard.dismiss(); // Ferme le clavier après validation
+
     setDreamText('');
     setDreamDescription('');
     setLocation('');
@@ -133,11 +186,12 @@ export default function DreamForm() {
       contentContainerStyle={{ paddingBottom: 32 }}
       keyboardShouldPersistTaps="handled"
       enableAutomaticScroll
+      showsVerticalScrollIndicator={false}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
         <View style={styles.container}>
           {/* Date / Heure */}
-          <View style={[styles.row, { width: width * 0.8, alignSelf: 'center' }]}>
+          <View style={[styles.row, { width: contentWidth, alignSelf: 'center' }]}>
             <TextInput
               label="Date"
               value={dateDisplay}
@@ -186,7 +240,7 @@ export default function DreamForm() {
             mode="flat"
             multiline
             numberOfLines={6}
-            style={[styles.input, { width: width * 0.8, alignSelf: 'center' }]}
+            style={[styles.input, { width: contentWidth, alignSelf: 'center' }]}
           />
 
           {/* Lieu */}
@@ -195,7 +249,7 @@ export default function DreamForm() {
             value={location}
             onChangeText={setLocation}
             mode="flat"
-            style={[styles.input, { width: width * 0.8, alignSelf: 'center' }]}
+            style={[styles.input, { width: contentWidth, alignSelf: 'center' }]}
           />
 
           {/* Personne */}
@@ -204,26 +258,26 @@ export default function DreamForm() {
             value={character}
             onChangeText={setCharacter}
             mode="flat"
-            style={[styles.input, { width: width * 0.8, alignSelf: 'center' }]}
+            style={[styles.input, { width: contentWidth, alignSelf: 'center' }]}
           />
 
           {/* Type de rêve */}
-          <View style={{ width: width * 0.8, alignSelf: 'center', marginBottom: 16 }}>
+          <View style={{ width: contentWidth, alignSelf: 'center', marginBottom: 16 }}>
             <ThemedText style={styles.fieldLabel}>Type de rêve</ThemedText>
             <SegmentedButtons
               value={dreamType}
               onValueChange={(v) => setDreamType(v as 'lucid' | 'nightmare' | 'pleasant')}
               style={{ marginTop: 8 }}
               buttons={[
-                { value: 'lucid', label: 'Rêve lucide' },
-                { value: 'nightmare', label: 'Cauchemar' },
-                { value: 'pleasant', label: 'Rêve agréable' },
+                { value: 'lucid', label: 'Rêve lucide', labelStyle: { fontSize: width < 350 ? 10 : width < 400 ? 12 : 14 } },
+                { value: 'nightmare', label: 'Cauchemar', labelStyle: { fontSize: width < 350 ? 10 : width < 400 ? 12 : 14 } },
+                { value: 'pleasant', label: 'Rêve agréable', labelStyle: { fontSize: width < 350 ? 10 : width < 400 ? 12 : 14 } },
               ]}
             />
           </View>
 
           {/* Sliders */}
-          <View style={[styles.row, { width: width * 0.8, alignSelf: 'center' }]}>
+          <View style={[styles.row, { width: contentWidth, alignSelf: 'center' }]}>
             <View style={[styles.sliderHalf, { marginRight: 8 }]}>
               <ThemedText style={styles.sliderLabel}>Intensity: {intensity}</ThemedText>
               <Slider
@@ -256,7 +310,7 @@ export default function DreamForm() {
             mode="flat"
             multiline
             numberOfLines={4}
-            style={[styles.input, { width: width * 0.8, alignSelf: 'center' }]}
+            style={[styles.input, { width: contentWidth, alignSelf: 'center' }]}
           />
 
 
@@ -268,13 +322,13 @@ export default function DreamForm() {
             mode="flat"
             multiline
             numberOfLines={4}
-            style={[styles.input, { width: width * 0.8, alignSelf: 'center' }]}
+            style={[styles.input, { width: contentWidth, alignSelf: 'center' }]}
           />
 
 
 
           {/* Hashtags (3 max) */}
-          <View style={{ width: width * 0.8, alignSelf: 'center', marginBottom: 8 }}>
+          <View style={{ width: contentWidth, alignSelf: 'center', marginBottom: 8 }}>
             <ThemedText style={styles.fieldLabel}>Hashtags (3 max)</ThemedText>
             <View style={styles.tagsRow}>
               {tags.map((t) => (
@@ -307,7 +361,7 @@ export default function DreamForm() {
           </View>
 
           {/* Favori */}
-          <View style={{ width: width * 0.8, alignSelf: 'center' }}>
+          <View style={{ width: contentWidth, alignSelf: 'center' }}>
             <Checkbox.Item
               label="Ajouter aux favoris"
               status={favorite ? 'checked' : 'unchecked'}

@@ -4,20 +4,11 @@ import { AsyncStorageConfig } from '@/constants/AsyncStorageConfig';
 import { DreamData } from '@/interfaces/DreamData';
 import { AsyncStorageService } from '@/services/AsyncStorageService';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Divider, useTheme } from 'react-native-paper';
-import {
-    VictoryAxis,
-    VictoryBar,
-    VictoryChart,
-    VictoryGroup,
-    VictoryLegend,
-    VictoryLine,
-    VictoryPie,
-    VictoryScatter,
-    VictoryTooltip,
-} from 'victory-native';
+import * as VictoryNative from 'victory-native';
+const Victory: any = VictoryNative;
 
 // ---------- Utils ----------
 const startOfWeek = (d: Date) => {
@@ -62,7 +53,7 @@ function CalendarHeatmap({ byDayMap }: { byDayMap: Map<string, number> }) {
   }
   const cols = 6;
   const rows = 5;
-  const grid: typeof days[][] = [];
+  const grid: Array<Array<{ key: string; date: Date; count: number }>> = [];
   for (let r = 0; r < rows; r++) grid[r] = [];
   days.forEach((item, idx) => {
     const r = Math.floor(idx / cols);
@@ -102,7 +93,7 @@ export default function StatsModal() {
 
   useEffect(() => {
     (async () => {
-      const arr = (await AsyncStorageService.getData<DreamData[]>(
+      const arr = (await AsyncStorageService.getData(
         AsyncStorageConfig.keys.dreamsArrayKey
       )) || [];
       setDreams(arr);
@@ -262,7 +253,7 @@ export default function StatsModal() {
   return (
     <ThemedView style={styles.container}>
       <StatusBar style={Platform.OS === 'ios' ? 'light' : 'auto'} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+  <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <ThemedText style={styles.h1}>Statistiques</ThemedText>
 
         {/* Résumé minimal — toujours visible */}
@@ -284,14 +275,14 @@ export default function StatsModal() {
           <Card.Title title="Nombre de rêves / semaine" />
           <Card.Content>
             {perWeek.length ? (
-              <VictoryChart domainPadding={{ x: 12, y: 12 }}>
-                <VictoryAxis
-                  tickFormat={(t) => fmtDay(new Date(t))}
+              <Victory.VictoryChart domainPadding={{ x: 12, y: 12 }}>
+                <Victory.VictoryAxis
+                  tickFormat={(t: any) => fmtDay(new Date(t))}
                   style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }}
                 />
-                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
-                <VictoryBar data={perWeek} labels={({ datum }) => datum.y} labelComponent={<VictoryTooltip />} />
-              </VictoryChart>
+                <Victory.VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryBar data={perWeek} labels={({ datum }: { datum: any }) => datum.y} labelComponent={<Victory.VictoryTooltip />} />
+              </Victory.VictoryChart>
             ) : (
               <ThemedText style={styles.placeholder}>Aucune donnée hebdomadaire</ThemedText>
             )}
@@ -303,14 +294,14 @@ export default function StatsModal() {
           <Card.Title title="Nombre de rêves / mois" />
           <Card.Content>
             {perMonth.length ? (
-              <VictoryChart domainPadding={{ x: 18, y: 12 }}>
-                <VictoryAxis
-                  tickFormat={(t) => fmtMonth(new Date(t))}
+              <Victory.VictoryChart domainPadding={{ x: 18, y: 12 }}>
+                <Victory.VictoryAxis
+                  tickFormat={(t: any) => fmtMonth(new Date(t))}
                   style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }}
                 />
-                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
-                <VictoryBar data={perMonth} />
-              </VictoryChart>
+                <Victory.VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryBar data={perMonth} />
+              </Victory.VictoryChart>
             ) : (
               <ThemedText style={styles.placeholder}>Aucune donnée mensuelle</ThemedText>
             )}
@@ -322,7 +313,7 @@ export default function StatsModal() {
           <Card.Title title="Répartition des types" />
           <Card.Content>
             {typePie.some((d) => d.y > 0) ? (
-              <VictoryPie data={typePie} labels={({ datum }) => `${datum.x}\n${datum.y}`} labelComponent={<VictoryTooltip />} innerRadius={50} />
+              <Victory.VictoryPie data={typePie} labels={({ datum }: { datum: any }) => `${datum.x}\n${datum.y}`} labelComponent={<Victory.VictoryTooltip />} innerRadius={50} />
             ) : (
               <ThemedText style={styles.placeholder}>Aucun type disponible</ThemedText>
             )}
@@ -334,14 +325,14 @@ export default function StatsModal() {
           <Card.Title title="Éléments récurrents (texte)" />
           <Card.Content>
             {frequentWords.length ? (
-              <VictoryChart domainPadding={{ x: 20, y: 12 }}>
-                <VictoryAxis
-                  tickFormat={(t) => String(t)}
+              <Victory.VictoryChart domainPadding={{ x: 20, y: 12 }}>
+                <Victory.VictoryAxis
+                  tickFormat={(t: any) => String(t)}
                   style={{ tickLabels: { angle: -30, fontSize: 10, fill: colors.onSurface } }}
                 />
-                <VictoryAxis dependentAxis style={{ tickLabels: { fontSize: 10, fill: colors.onSurface } }} />
-                <VictoryBar data={frequentWords} />
-              </VictoryChart>
+                <Victory.VictoryAxis dependentAxis style={{ tickLabels: { fontSize: 10, fill: colors.onSurface } }} />
+                <Victory.VictoryBar data={frequentWords} />
+              </Victory.VictoryChart>
             ) : (
               <ThemedText style={styles.placeholder}>Pas assez de texte pour analyser</ThemedText>
             )}
@@ -361,17 +352,17 @@ export default function StatsModal() {
           <Card.Title title="Intensité / Qualité dans le temps" />
           <Card.Content>
             {seriesLine.length ? (
-              <VictoryChart domainPadding={{ x: 16, y: 12 }}>
-                <VictoryAxis tickFormat={(t) => fmtDay(new Date(t))} style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
-                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
-                <VictoryGroup>
-                  <VictoryLine data={seriesLine.map((p) => ({ x: p.date, y: p.intensity }))} />
-                  <VictoryScatter data={seriesLine.map((p) => ({ x: p.date, y: p.intensity }))} />
-                  <VictoryLine data={seriesLine.map((p) => ({ x: p.date, y: p.quality }))} />
-                  <VictoryScatter data={seriesLine.map((p) => ({ x: p.date, y: p.quality }))} />
-                </VictoryGroup>
-                <VictoryLegend x={50} orientation="horizontal" gutter={20} data={[{ name: 'Intensité' }, { name: 'Qualité' }]} />
-              </VictoryChart>
+              <Victory.VictoryChart domainPadding={{ x: 16, y: 12 }}>
+                <Victory.VictoryAxis tickFormat={(t: any) => fmtDay(new Date(t))} style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryGroup>
+                  <Victory.VictoryLine data={seriesLine.map((p) => ({ x: p.date, y: p.intensity }))} />
+                  <Victory.VictoryScatter data={seriesLine.map((p) => ({ x: p.date, y: p.intensity }))} />
+                  <Victory.VictoryLine data={seriesLine.map((p) => ({ x: p.date, y: p.quality }))} />
+                  <Victory.VictoryScatter data={seriesLine.map((p) => ({ x: p.date, y: p.quality }))} />
+                </Victory.VictoryGroup>
+                <Victory.VictoryLegend x={50} orientation="horizontal" gutter={20} data={[{ name: 'Intensité' }, { name: 'Qualité' }]} />
+              </Victory.VictoryChart>
             ) : (
               <ThemedText style={styles.placeholder}>Aucune donnée d’intensité/qualité</ThemedText>
             )}
@@ -402,36 +393,36 @@ export default function StatsModal() {
           <Card.Content>
             <ThemedText style={styles.subH}>Clarté ↔ Type (proxy : intensité moyenne)</ThemedText>
             {corrClarityVsType.length ? (
-              <VictoryChart domainPadding={{ x: 20, y: 12 }}>
-                <VictoryAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
-                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
-                <VictoryBar data={corrClarityVsType} />
-              </VictoryChart>
+              <Victory.VictoryChart domainPadding={{ x: 20, y: 12 }}>
+                <Victory.VictoryAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryBar data={corrClarityVsType} />
+              </Victory.VictoryChart>
             ) : (
               <ThemedText style={styles.placeholder}>Insuffisant</ThemedText>
             )}
 
             <ThemedText style={styles.subH}>Tonalité ↔ Qualité (moy. par type)</ThemedText>
             {corrToneVsQuality.length ? (
-              <VictoryChart domainPadding={{ x: 20, y: 12 }}>
-                <VictoryAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
-                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
-                <VictoryBar data={corrToneVsQuality} />
-              </VictoryChart>
+              <Victory.VictoryChart domainPadding={{ x: 20, y: 12 }}>
+                <Victory.VictoryAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryBar data={corrToneVsQuality} />
+              </Victory.VictoryChart>
             ) : (
               <ThemedText style={styles.placeholder}>Insuffisant</ThemedText>
             )}
 
             <ThemedText style={styles.subH}>(Bonus) Fréquence ↔ Phases lunaires</ThemedText>
             {corrFreqVsMoon.some((d) => d.y > 0) ? (
-              <VictoryChart domainPadding={{ x: 20, y: 12 }}>
-                <VictoryAxis
-                  tickFormat={(t) => ({ Q1: 'Nouv.', Q2: 'Croiss.', Q3: 'Pleine', Q4: 'Décroiss.' } as any)[t] || t}
+              <Victory.VictoryChart domainPadding={{ x: 20, y: 12 }}>
+                <Victory.VictoryAxis
+                  tickFormat={(t: any) => ({ Q1: 'Nouv.', Q2: 'Croiss.', Q3: 'Pleine', Q4: 'Décroiss.' } as any)[t] || t}
                   style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }}
                 />
-                <VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
-                <VictoryBar data={corrFreqVsMoon} />
-              </VictoryChart>
+                <Victory.VictoryAxis dependentAxis style={{ tickLabels: { fill: colors.onSurface, fontSize: 10 } }} />
+                <Victory.VictoryBar data={corrFreqVsMoon} />
+              </Victory.VictoryChart>
             ) : (
               <ThemedText style={styles.placeholder}>Aucun signal</ThemedText>
             )}

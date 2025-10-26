@@ -3,7 +3,7 @@ import { AsyncStorageConfig } from '@/constants/AsyncStorageConfig';
 import { DreamData } from '@/interfaces/DreamData';
 import { AsyncStorageService } from '@/services/AsyncStorageService';
 import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Card, useTheme } from 'react-native-paper';
 
@@ -36,7 +36,7 @@ export default function ModalScreen() {
   useEffect(() => {
     (async () => {
       const arr =
-        (await AsyncStorageService.getData<DreamData[]>(
+        (await AsyncStorageService.getData(
           AsyncStorageConfig.keys.dreamsArrayKey
         )) || [];
       setDreams(arr);
@@ -121,7 +121,7 @@ export default function ModalScreen() {
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar style={theme.dark ? 'light' : 'dark'} />
-      <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <Text style={[styles.h1, { color: textColor }]}>Statistiques</Text>
 
         <Card style={styles.card}>
