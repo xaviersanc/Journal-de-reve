@@ -2,6 +2,8 @@
 
 Application mobile pour consigner - Protéger- Toute personne souhaitant mCompatibPlacer les images d'icône, adaptive icon, splash et favicon dans le dossier des images et mettre à jour la configuration de l'app. Respecter les dimensions recommandées pour un rendu optimal.
 
+APK disponible : https://expo.dev/accounts/electro33/projects/live-app/builds/dddfc207-3638-4a97-b101-34641c13a2c1
+
 ## Dépannage (aperçu)
 
 - Éviter d'imbriquer des listes virtualisées dans un conteneur scrollableec le service de build Expo. Prévoir un compte, des icônes configurées et les éléments de fiche store. Les instructions de build et de soumission peuvent être fournies séparément si besoin.
